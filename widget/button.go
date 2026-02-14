@@ -76,15 +76,15 @@ func (w *Button) Update(ctx *uikit.Context) {
 }
 
 func (w *Button) Draw(ctx *uikit.Context, dst *ebiten.Image) {
-	r := w.Measure(false)
-	w.Base.Draw(ctx, dst)
+	r := w.Base.Draw(ctx, dst)
+	dr := r.Sub(dst.Bounds().Min)
 
 	theme := ctx.Theme()
 	if w.IsEnabled() {
 		if w.IsPressed() {
-			w.DrawRoundedRect(dst, r, theme.Radius, theme.FocusColor)
+			w.DrawRoundedRect(dst, dr, theme.Radius, theme.FocusColor)
 		} else if w.IsHovered() {
-			w.DrawRoundedRect(dst, r, theme.Radius, theme.BorderColor)
+			w.DrawRoundedRect(dst, dr, theme.Radius, theme.BorderColor)
 		}
 	}
 

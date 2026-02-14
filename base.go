@@ -141,13 +141,9 @@ func (b *Base) IsVisible() bool   { return b.visible }
 func (b *Base) SetVisible(v bool) { b.visible = v }
 
 func (c *Base) Draw(ctx *Context, dst *ebiten.Image) image.Rectangle {
-	if c.rect.Dy() == 0 {
-		c.SetFrame(c.rect.Min.X, c.rect.Min.Y, c.rect.Dx())
-	}
-
 	r := c.Measure(false)
 	c.DrawSurface(ctx, dst, r)
-	c.DrawBoder(ctx, dst, r)
+	c.DrawBorder(ctx, dst, r)
 	c.DrawFocus(ctx, dst, r)
 	c.DrawInvalid(ctx, dst, r)
 	return r
@@ -167,10 +163,11 @@ func (c *Base) DrawSurface(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 		bg = ctx.Theme().SurfaceHoverColor
 	}
 
+	r = r.Sub(dst.Bounds().Min)
 	drawRoundedRect(dst, r, ctx.Theme().Radius, bg)
 }
 
-func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
+func (c *Base) DrawBorder(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 	if !c.cfg.DrawBorder {
 		return
 	}
@@ -183,6 +180,7 @@ func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 		border = ctx.Theme().ErrorBorderColor
 	}
 
+	r = r.Sub(dst.Bounds().Min)
 	drawRoundedBorder(dst, r, ctx.Theme().Radius, ctx.Theme().BorderW, border)
 }
 
@@ -195,6 +193,7 @@ func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 		return
 	}
 
+	r = r.Sub(dst.Bounds().Min)
 	drawRoundedBorder(dst, r, ctx.Theme().Radius, ctx.Theme().FocusRingW, ctx.Theme().FocusColor)
 }
 

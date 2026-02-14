@@ -3,7 +3,6 @@ package uikit
 import (
 	"image"
 	"image/color"
-	"math"
 
 	"github.com/erparts/go-shapes"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -14,7 +13,7 @@ import (
 var shapesRenderer = shapes.NewRenderer()
 
 func clampInt(v, lo, hi int) int {
-	return int(math.Max(float64(lo), math.Min(float64(hi), float64(v))))
+	return max(lo, min(hi, v))
 }
 
 func drawPathOptionsForColor(col color.RGBA) *vector.DrawPathOptions {
@@ -26,7 +25,7 @@ func drawPathOptionsForColor(col color.RGBA) *vector.DrawPathOptions {
 }
 
 func drawRoundedRect(dst *ebiten.Image, r image.Rectangle, radius int, col color.RGBA) {
-	if r.Dy() <= 0 || r.Dx() <= 0 {
+	if r.Empty() {
 		return
 	}
 
@@ -36,7 +35,7 @@ func drawRoundedRect(dst *ebiten.Image, r image.Rectangle, radius int, col color
 }
 
 func drawRoundedBorder(dst *ebiten.Image, r image.Rectangle, radius int, borderW int, col color.RGBA) {
-	if borderW <= 0 || r.Dx() <= 0 || r.Dy() <= 0 {
+	if borderW <= 0 || r.Empty() {
 		return
 	}
 
@@ -48,7 +47,7 @@ func drawRoundedBorder(dst *ebiten.Image, r image.Rectangle, radius int, borderW
 }
 
 func drawErrorText(ctx *Context, dst *ebiten.Image, r image.Rectangle, msg string) {
-	if msg == "" || r.Dx() <= 0 || r.Dy() <= 0 {
+	if msg == "" || r.Empty() {
 		return
 	}
 

@@ -1,8 +1,6 @@
 package layout
 
 import (
-	"image/color"
-
 	"github.com/erparts/go-uikit"
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -12,38 +10,35 @@ var _ uikit.Layout = (*Stack)(nil)
 // Stack places children vertically. If height > 0 it becomes scrollable and clips via SubImage.
 type Stack struct {
 	uikit.Base
+	uikit.Scroller
+
 	children []uikit.Widget
 
 	padX int
 	padY int
 	gap  int
 
-	Scroll uikit.Scroller
-
 	height   int
 	contentH int
-
-	scratch    *ebiten.Image
-	background color.RGBA
 }
 
 func NewStack(theme *uikit.Theme) *Stack {
-	l := &Stack{}
-
 	cfg := uikit.NewWidgetBaseConfig(theme)
-	l.Base = uikit.NewBase(cfg)
-	l.Base.SetEnabled(true)
-	l.Base.HeightCalculator = func() int {
-		if l.height == 0 {
-			return l.contentH
-		}
-
-		return l.height
+	l := &Stack{
+		Base:     uikit.NewBase(cfg),
+		Scroller: uikit.NewScroller(),
+		gap:      theme.SpaceS,
 	}
+	l.Base.HeightCalculator = l.heightCalculator
 
-	l.gap = theme.SpaceS
-	l.Scroll = uikit.NewScroller()
 	return l
+}
+
+func (l *Stack) heightCalculator() int {
+	if l.height == 0 {
+		return l.contentH
+	}
+	return l.height
 }
 
 func (l *Stack) Focusable() bool { return false }
@@ -77,15 +72,11 @@ func (l *Stack) Clear() {
 }
 
 func (l *Stack) Update(ctx *uikit.Context) {
-	l.doLayout(ctx)
-
 	r := l.Measure(false)
-
-	// Scroll input only when height is limited
-	if r.Dy() > 0 {
-		l.Scroll.Update(ctx, r, l.contentH)
-		l.doLayout(ctx)
+	if l.height > 0 {
+		l.Scroller.Update(ctx, r, l.contentH)
 	}
+	l.doLayout(ctx)
 
 	for _, w := range l.children {
 		if !w.IsVisible() {
@@ -98,39 +89,27 @@ func (l *Stack) Update(ctx *uikit.Context) {
 
 func (l *Stack) doLayout(ctx *uikit.Context) {
 	vp := l.Measure(false)
-	x0 := vp.Min.X + l.padX
-	y0 := vp.Min.Y + l.padY
-	w0 := vp.Dx() - l.padX*2
-	if w0 < 0 {
-		w0 = 0
-	}
+	x := vp.Min.X + l.padX
+	y := vp.Min.Y + l.padY - l.Scroller.ScrollY
+	w := max(vp.Dx()-l.padX*2, 0)
 
-	y := y0
-	if vp.Dy() > 0 {
-		y -= l.Scroll.ScrollY
-	}
-
-	contentH := l.padY * 2
-	for i, ch := range l.children {
+	l.contentH = l.padY * 2
+	var anyDrawn bool
+	for _, ch := range l.children {
 		if !ch.IsVisible() {
 			continue
 		}
 
-		ch.SetFrame(x0, y, w0)
-		r := ch.Measure(true)
-		contentH += r.Dy()
-		if i != len(l.children)-1 {
-			contentH += l.gap
-		}
-		y += r.Dy() + l.gap
+		ch.SetFrame(x, y, w)
+		advance := ch.Measure(true).Dy() + l.gap
+		y += advance
+		l.contentH += advance
+		anyDrawn = true
 	}
 
-	// At least viewport height so scrollbar math is stable
-	if vp.Dy() > 0 && contentH < vp.Dy() {
-		contentH = vp.Dy()
+	if anyDrawn {
+		l.contentH -= l.gap
 	}
-
-	l.contentH = contentH
 }
 
 func (l *Stack) Draw(ctx *uikit.Context, dst *ebiten.Image) {
@@ -138,46 +117,17 @@ func (l *Stack) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 		return
 	}
 
-	vp := l.Measure(false)
-
-	if vp.Dy() <= 0 {
-		for _, ch := range l.children {
-			if !ch.IsVisible() {
-				continue
-			}
-
-			ch.Draw(ctx, dst)
-		}
-
-		return
-	}
-
-	// Scrollable: render to a full-screen scratch (no coordinate shifting),
-	// then copy only the viewport region back to dst using SubImage.
-	sw, sh := dst.Bounds().Dx(), dst.Bounds().Dy()
-	if l.scratch == nil || l.scratch.Bounds().Dx() != sw || l.scratch.Bounds().Dy() != sh {
-		l.scratch = ebiten.NewImage(sw, sh)
-	}
-
-	l.scratch.Clear()
-
+	r := l.Measure(false)
+	sub := dst.SubImage(r).(*ebiten.Image)
 	for _, ch := range l.children {
 		if !ch.IsVisible() {
 			continue
 		}
-
-		ch.Draw(ctx, l.scratch)
+		ch.Draw(ctx, sub)
 	}
-
-	part := l.scratch.SubImage(vp).(*ebiten.Image)
-
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(vp.Min.X), float64(vp.Min.Y))
-	dst.DrawImage(part, op)
-
-	sub := dst.SubImage(vp).(*ebiten.Image)
-
-	l.Scroll.DrawBar(sub, ctx.Theme(), vp.Dx(), vp.Dy(), l.contentH)
+	if l.height > 0 {
+		l.Scroller.DrawBar(sub, ctx.Theme(), sub.Bounds().Dx(), sub.Bounds().Dy(), l.contentH)
+	}
 }
 
 func (l *Stack) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {

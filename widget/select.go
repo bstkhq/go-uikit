@@ -184,18 +184,13 @@ func (s *Select) HitTest(ctx *uikit.Context, pos image.Point) bool {
 }
 
 func (s *Select) Update(ctx *uikit.Context) {
-	r := s.Measure(false)
-	if r.Dx() > 0 && r.Dy() == 0 {
-		s.SetFrame(r.Min.X, r.Min.Y, r.Dx())
-	}
-
 	if !s.IsEnabled() {
 		s.open = false
 		return
 	}
 
 	ptr := ctx.Pointer()
-	ctrlInside := ptr.Position.In(r)
+	ctrlInside := ptr.Position.In(s.Measure(false))
 
 	if !s.open && ptr.IsJustDown && ctrlInside {
 		s.open = true

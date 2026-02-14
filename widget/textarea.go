@@ -60,10 +60,11 @@ func (w *TextArea) calculateHeight() int {
 		lines = 5
 	}
 
-	lineH := w.Theme().Text().Measure(" ").IntHeight()
-	controlH := w.Theme().PadY*2 + lines*lineH
-	if controlH < w.Theme().ControlH {
-		controlH = w.Theme().ControlH
+	theme := w.Theme()
+	lineH := int(math.Ceil(theme.Text().Utils().GetLineHeight()))
+	controlH := theme.PadY*2 + lines*lineH
+	if controlH < theme.ControlH {
+		controlH = theme.ControlH
 	}
 	return controlH
 }
@@ -94,12 +95,6 @@ func (w *TextArea) setTextInternal(s string) {
 }
 
 func (w *TextArea) Update(ctx *uikit.Context) {
-	r := w.Measure(false)
-	if r.Dx() > 0 && r.Dy() == 0 {
-		// Correct: SetFrame expects width (Dx), not Max.X
-		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
-	}
-
 	focused := w.IsFocused()
 	enabled := w.IsEnabled()
 
@@ -110,11 +105,11 @@ func (w *TextArea) Update(ctx *uikit.Context) {
 	}
 
 	theme := ctx.Theme()
-	content := common.Inset(r, theme.PadX, theme.PadY)
+	content := common.Inset(w.Measure(false), theme.PadX, theme.PadY)
 
 	// Only line-height is needed for scroll math.
 	t := theme.Text()
-	lineH := t.Measure(" ").IntHeight()
+	lineH := int(math.Ceil(t.Utils().GetLineHeight()))
 	if lineH <= 0 {
 		lineH = 1
 	}
@@ -225,22 +220,14 @@ func (w *TextArea) Update(ctx *uikit.Context) {
 }
 
 func (w *TextArea) Draw(ctx *uikit.Context, dst *ebiten.Image) {
-	r := w.Measure(false)
-	if r.Dx() > 0 && r.Dy() == 0 {
-		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
-	}
+	r := w.Base.Draw(ctx, dst)
 
 	theme := ctx.Theme()
 	content := common.Inset(r, theme.PadX, theme.PadY)
 
-	// Base visuals
-	w.DrawSurface(ctx, dst, r)
-	w.DrawBoder(ctx, dst, r)
-	w.DrawFocus(ctx, dst, r)
-
 	// Clip to content
 	sub := dst.SubImage(content).(*ebiten.Image)
-	ox, oy := sub.Bounds().Min.X, sub.Bounds().Min.Y
+	ox, oy := content.Bounds().Min.X, content.Bounds().Min.Y
 
 	t := theme.Text()
 	t.SetFont(theme.Font)
@@ -333,6 +320,4 @@ func (w *TextArea) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 			}
 		}
 	}
-
-	w.DrawInvalid(ctx, dst, r)
 }

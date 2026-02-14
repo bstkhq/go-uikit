@@ -43,6 +43,22 @@ func (w *Checkbox) heightCalculator() int {
 	return w.lastHeight
 }
 
+func (w *Checkbox) SetFrame(x, y, width int) {
+	if width != w.refWidth {
+		w.refreshHeight(width)
+	}
+	w.Base.SetFrame(x, y, width)
+}
+
+func (w *Checkbox) refreshHeight(width int) {
+	w.refWidth = width
+	theme := w.Base.Theme()
+	boxSize, boxHorzIntsp, padX, padY := w.boxMetrics(theme)
+	maxLineLen := max(w.refWidth-(boxSize+boxHorzIntsp+padX*2), 0)
+	w.lastHeight = theme.Text().MeasureWithWrap(w.label, maxLineLen).IntHeight()
+	w.lastHeight = max(w.lastHeight+padY*2, theme.ControlH)
+}
+
 func (w *Checkbox) Focusable() bool { return true }
 
 func (w *Checkbox) SetChecked(v bool) {
@@ -68,20 +84,6 @@ func (w *Checkbox) onClick(e uikit.Event) bool {
 }
 
 func (w *Checkbox) Update(ctx *uikit.Context) {
-	r := w.Measure(false)
-	if r.Dy() == 0 {
-		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
-	}
-
-	if w.refWidth != r.Dx() {
-		w.refWidth = r.Dx()
-		boxSize, boxHorzIntsp, padX, padY := w.boxMetrics(ctx)
-		maxLineLen := max(w.refWidth-(boxSize+boxHorzIntsp+padX*2), 0)
-		theme := ctx.Theme()
-		w.lastHeight = theme.Text().MeasureWithWrap(w.label, maxLineLen).IntHeight()
-		w.lastHeight = max(w.lastHeight+padY*2, theme.ControlH)
-	}
-
 	if !w.IsEnabled() {
 		return
 	}
@@ -93,14 +95,13 @@ func (w *Checkbox) Update(ctx *uikit.Context) {
 }
 
 func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
-	w.Base.Draw(ctx, dst)
+	r := w.Base.Draw(ctx, dst)
+	dr := r.Sub(dst.Bounds().Min)
 
 	theme := ctx.Theme()
-	r := w.Measure(false)
-
-	boxSize, boxHorzIntsp, padX, padY := w.boxMetrics(ctx)
-	content := common.Inset(r, padX, padY)
-	boxY := r.Min.Y + (r.Dy()-boxSize)/2
+	boxSize, boxHorzIntsp, padX, padY := w.boxMetrics(ctx.Theme())
+	content := common.Inset(dr, padX, padY)
+	boxY := dr.Min.Y + (dr.Dy()-boxSize)/2
 	box := image.Rect(content.Min.X, boxY, content.Min.X+boxSize, boxY+boxSize)
 
 	// Colors
@@ -132,12 +133,13 @@ func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	w.Base.DrawRoundedBorder(dst, box, radius, theme.BorderW, border)
 
 	if w.checked {
-		x1 := float32(box.Min.X) + float32(boxSize)*0.22
-		y1 := float32(box.Min.Y) + float32(boxSize)*0.55
-		x2 := float32(box.Min.X) + float32(boxSize)*0.42
-		y2 := float32(box.Min.Y) + float32(boxSize)*0.73
-		x3 := float32(box.Min.X) + float32(boxSize)*0.78
-		y3 := float32(box.Min.Y) + float32(boxSize)*0.30
+		boxMin := r.Min.Add(image.Pt(padX, (dr.Dy()-boxSize)/2))
+		x1 := float32(boxMin.X) + float32(boxSize)*0.22
+		y1 := float32(boxMin.Y) + float32(boxSize)*0.55
+		x2 := float32(boxMin.X) + float32(boxSize)*0.42
+		y2 := float32(boxMin.Y) + float32(boxSize)*0.73
+		x3 := float32(boxMin.X) + float32(boxSize)*0.78
+		y3 := float32(boxMin.Y) + float32(boxSize)*0.30
 
 		strokeW := float32(theme.BorderW)
 		if strokeW < 2 {
@@ -155,12 +157,12 @@ func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	t := theme.Text()
 	t.SetColor(textCol)
 	t.SetAlign(etxt.Left | etxt.VertCenter)
-	maxLineLen := max(r.Dx()-(boxSize+boxHorzIntsp+padX*2), 0)
-	t.DrawWithWrap(dst, w.label, box.Max.X+boxHorzIntsp, r.Min.Y+r.Dy()/2, maxLineLen)
+	leftOffset := boxSize + boxHorzIntsp + padX
+	maxLineLen := max(r.Dx()-(leftOffset+padX), 0)
+	t.DrawWithWrap(dst, w.label, r.Min.X+leftOffset, r.Min.Y+r.Dy()/2, maxLineLen)
 }
 
-func (w *Checkbox) boxMetrics(ctx *uikit.Context) (size, horzInterspace, padX, padY int) {
-	theme := ctx.Theme()
+func (w *Checkbox) boxMetrics(theme *uikit.Theme) (size, horzInterspace, padX, padY int) {
 	boxSize := theme.CheckSize
 	if boxSize < 12 {
 		boxSize = 12

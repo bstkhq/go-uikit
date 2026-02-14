@@ -84,14 +84,6 @@ func removeLastRune(s string) string {
 }
 
 func (w *TextInput) Update(ctx *uikit.Context) {
-	r := w.Measure(false)
-
-	// If height is still unknown, ensure a valid frame.
-	// BUGFIX: SetFrame expects width, not Max.X.
-	if r.Dy() == 0 {
-		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
-	}
-
 	focused := w.IsFocused()
 	enabled := w.IsEnabled()
 

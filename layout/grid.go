@@ -10,32 +10,38 @@ var _ uikit.Layout = (*Grid)(nil)
 // Grid places children in a fixed column grid. If height > 0 it becomes scrollable and clips via SubImage.
 type Grid struct {
 	uikit.Base
-	children []uikit.Widget
-	scroll   uikit.Scroller
+	uikit.Scroller
 
-	columns int
-	padX    int
-	padY    int
-	gapX    int
-	gapY    int
-	height  int
-	scratch *ebiten.Image
+	children []uikit.Widget
+
+	columns  int
+	padX     int
+	padY     int
+	gapX     int
+	gapY     int
+	height   int
+	contentH int
 }
 
 func NewGrid(theme *uikit.Theme) *Grid {
-	l := &Grid{}
-	l.columns = 2
-	l.gapX = theme.SpaceS
-	l.gapY = theme.SpaceS
-	l.scroll = uikit.NewScroller()
-
 	cfg := uikit.NewWidgetBaseConfig(theme)
-	l.Base = uikit.NewBase(cfg)
-	l.Base.HeightCalculator = func() int {
-		return l.height
+	l := &Grid{
+		Base:     uikit.NewBase(cfg),
+		columns:  2,
+		gapX:     theme.SpaceS,
+		gapY:     theme.SpaceS,
+		Scroller: uikit.NewScroller(),
 	}
+	l.Base.HeightCalculator = l.heightCalculator
 
 	return l
+}
+
+func (l *Grid) heightCalculator() int {
+	if l.height == 0 {
+		return l.contentH
+	}
+	return l.height
 }
 
 func (l *Grid) Focusable() bool { return false }
@@ -75,12 +81,10 @@ func (l *Grid) Clear() {
 }
 
 func (l *Grid) Update(ctx *uikit.Context) {
-	l.doLayout(ctx)
-
-	if l.Measure(false).Dy() > 0 {
-		l.scroll.Update(ctx, l.Measure(false), l.height)
-		l.doLayout(ctx)
+	if l.height > 0 {
+		l.Scroller.Update(ctx, l.Measure(false), l.contentH)
 	}
+	l.doLayout(ctx)
 
 	for _, ch := range l.children {
 		if !ch.IsVisible() {
@@ -109,49 +113,40 @@ func (l *Grid) doLayout(ctx *uikit.Context) {
 		}
 	}
 
-	x0 := vp.Min.X + l.padX
-	y0 := vp.Min.Y + l.padY
-	x := x0
-	y := y0
-	if vp.Dy() > 0 {
-		y -= l.scroll.ScrollY
-	}
+	x := vp.Min.X + l.padX
+	y := vp.Min.Y + l.padY - l.Scroller.ScrollY
 
-	contentH := l.padY * 2
+	l.contentH = l.padY * 2
 	rowMaxH := 0
 	col := 0
-
-	for i, ch := range l.children {
+	lastRowCompleted := false
+	anyDrawn := false
+	for _, ch := range l.children {
 		if !ch.IsVisible() {
 			continue
 		}
-		ch.SetFrame(x, y, cellW)
-		r := ch.Measure(false)
-		if r.Dy() > rowMaxH {
-			rowMaxH = r.Dy()
-		}
 
-		col++
-		last := i == len(l.children)-1
-		if col >= cols || last {
-			contentH += rowMaxH
-			if !last {
-				contentH += l.gapY
-			}
+		ch.SetFrame(x+(cellW+l.gapX)*col, y, cellW)
+		r := ch.Measure(true)
+		rowMaxH = max(rowMaxH, r.Dy())
+
+		col += 1
+		if col >= cols {
+			lastRowCompleted = true
+			l.contentH += rowMaxH + l.gapY
 			y += rowMaxH + l.gapY
-			x = x0
-			col = 0
 			rowMaxH = 0
-		} else {
-			x += cellW + l.gapX
+			col = 0
 		}
 	}
 
-	if vp.Dy() > 0 && contentH < vp.Dy() {
-		contentH = vp.Dy()
+	if anyDrawn {
+		if !lastRowCompleted {
+			l.contentH += rowMaxH
+		} else {
+			l.contentH -= l.gapY
+		}
 	}
-
-	l.SetHeight(contentH)
 }
 
 func (l *Grid) Draw(ctx *uikit.Context, dst *ebiten.Image) {
@@ -159,40 +154,17 @@ func (l *Grid) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 		return
 	}
 
-	vp := l.Measure(false)
-	if vp.Dy() <= 0 {
-		for _, ch := range l.children {
-			if !ch.IsVisible() {
-				continue
-			}
-			ch.Draw(ctx, dst)
-		}
-
-		return
-	}
-
-	// Scrollable: render to a full-screen scratch (no coordinate shifting),
-	// then copy only the viewport region back to dst using SubImage.
-	sw, sh := dst.Bounds().Dx(), dst.Bounds().Dy()
-	if l.scratch == nil || l.scratch.Bounds().Dx() != sw || l.scratch.Bounds().Dy() != sh {
-		l.scratch = ebiten.NewImage(sw, sh)
-	}
-	l.scratch.Clear()
-
+	r := l.Measure(false)
+	sub := dst.SubImage(r).(*ebiten.Image)
 	for _, ch := range l.children {
 		if !ch.IsVisible() {
 			continue
 		}
-		ch.Draw(ctx, l.scratch)
+		ch.Draw(ctx, sub)
 	}
-
-	part := l.scratch.SubImage(vp).(*ebiten.Image)
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(vp.Min.X), float64(vp.Min.Y))
-	dst.DrawImage(part, op)
-
-	sub := dst.SubImage(vp).(*ebiten.Image)
-	l.scroll.DrawBar(sub, ctx.Theme(), vp.Dx(), vp.Dy(), l.height)
+	if l.height > 0 {
+		l.Scroller.DrawBar(sub, ctx.Theme(), sub.Bounds().Dx(), sub.Bounds().Dy(), l.contentH)
+	}
 }
 
 func (l *Grid) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {

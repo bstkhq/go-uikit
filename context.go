@@ -18,6 +18,7 @@ type Context struct {
 	ptr         *PointerStatus
 	hasTouch    bool
 	prevTouches map[ebiten.TouchID]struct{}
+	dstBounds   image.Rectangle
 }
 
 func NewContext(theme *Theme, root Layout, ime IMEBridge) *Context {
@@ -275,6 +276,8 @@ func (c *Context) topmostAt(pos image.Point) Widget {
 
 func (c *Context) Update() {
 	c.readPointerSnapshot()
+	c.root.SetHeight(c.dstBounds.Dy())
+	c.root.SetFrame(0, 0, c.dstBounds.Dx())
 	c.root.Update(c)
 
 	c.rebuildWidgets()
@@ -338,8 +341,7 @@ func (c *Context) Draw(dst *ebiten.Image) {
 		return
 	}
 
-	c.root.SetHeight(dst.Bounds().Dy())
-	c.root.SetFrame(0, 0, dst.Bounds().Dx())
+	c.dstBounds = dst.Bounds()
 	c.root.Draw(c, dst)
 	c.root.DrawOverlay(c, dst)
 }

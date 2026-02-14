@@ -37,6 +37,19 @@ func (w *Label) heightCalculator() int {
 	return w.lastHeight
 }
 
+func (w *Label) SetFrame(x, y, width int) {
+	if w.refWidth != width {
+		w.refreshHeight(width)
+	}
+	w.Base.SetFrame(x, y, width)
+}
+
+func (w *Label) refreshHeight(width int) {
+	w.refWidth = width
+	renderer := w.textRenderer(w.Base.Theme())
+	w.lastHeight = renderer.MeasureWithWrap(w.text, w.refWidth).IntHeight()
+}
+
 func (w *Label) Focusable() bool {
 	return false
 }
@@ -58,11 +71,6 @@ func (w *Label) SetTextModifiers(mods ...TextModifier) {
 }
 
 func (w *Label) Update(ctx *uikit.Context) {
-	r := w.Measure(false)
-	if r.Dy() == 0 {
-		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
-	}
-
 	if w.textFunc != nil {
 		text := w.textFunc()
 		if text != w.text {
@@ -71,10 +79,8 @@ func (w *Label) Update(ctx *uikit.Context) {
 		}
 	}
 
-	if w.refWidth != r.Dx() {
-		w.refWidth = r.Dx()
-		renderer := w.textRenderer(ctx.Theme())
-		w.lastHeight = renderer.MeasureWithWrap(w.text, w.refWidth).IntHeight()
+	if w.refWidth < 0 {
+		w.refreshHeight(w.Measure(false).Dx())
 	}
 }
 
