@@ -33,6 +33,7 @@ type rowStackPattern struct {
 
 func (rsp *rowStackPattern) normalize() {
 	if len(rsp.Weights) == 0 {
+		rsp.Weights = []float64{1.0}
 		return
 	}
 
@@ -157,10 +158,14 @@ func (l *RowStack) heightCalculator() int {
 	return l.height
 }
 
-// DefaultPattern returns the weights of the default row pattern.
-func (l *RowStack) DefaultPattern() []float64 {
-	pattern := l.patterns[-1]
-	return pattern.Weights
+// RowPattern returns the normalized weights for the requested row.
+// For the default pattern, use rowIndex < 0.
+func (l *RowStack) RowPattern(rowIndex int) []float64 {
+	rowIndex = max(rowIndex, -1)
+	if pattern, ok := l.patterns[rowIndex]; ok {
+		return pattern.Weights
+	}
+	return l.patterns[-1].Weights
 }
 
 // SetRowPattern sets the widget distribution pattern of a specific row.
@@ -190,8 +195,7 @@ func (l *RowStack) SetHeight(h int) {
 }
 
 func (l *RowStack) SetPadding(x, y int) {
-	l.padX = x
-	l.padY = y
+	l.padX, l.padY = x, y
 }
 
 func (l *RowStack) Children() []uikit.Widget {
@@ -333,7 +337,7 @@ func (l *RowStack) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 			if overlay.OverlayActive() {
 				overlay.DrawOverlay(ctx, dst)
 			}
-		case OverlayDrawer: // TODO: maybe simplify to only uikit.OverlayWidget and adjust widget.Select?
+		case OverlayDrawer:
 			overlay.DrawOverlay(ctx, dst)
 		}
 	}
