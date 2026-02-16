@@ -220,7 +220,7 @@ func (l *RowStack) Update(ctx *uikit.Context) {
 	}
 	l.doLayout(ctx)
 	if l.height > 0 {
-		l.Scroller.Update(ctx, l.Measure(false), l.height)
+		l.Scroller.Update(ctx, l.Measure(false), l.contentH)
 	}
 
 	for _, ch := range l.children {
