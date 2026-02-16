@@ -8,12 +8,34 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+type Align int
+
+func (a Align) Offset(itemSize, containerSize int) int {
+	switch a {
+	case AlignMiddle:
+		return (containerSize - itemSize) / 2
+	case AlignEnd:
+		return containerSize - itemSize
+	default: // assume AlignStart
+		return 0
+	}
+}
+
+const (
+	AlignStart  Align = -1
+	AlignMiddle Align = 0
+	AlignEnd    Align = 1
+)
+
 type rowStackPattern struct {
 	Weights []float64
-	Gap     int
 }
 
 func (rsp *rowStackPattern) normalize() {
+	if len(rsp.Weights) == 0 {
+		return
+	}
+
 	var sum float64
 	for i, weight := range rsp.Weights {
 		if weight < 0 {
@@ -35,11 +57,14 @@ func (rsp *rowStackPattern) normalize() {
 	}
 }
 
-func (rsp *rowStackPattern) computeWidths(totalWidth int, widthsBuffer []int) []int {
+func (rsp *rowStackPattern) computeWidths(totalWidth, gap int, widthsBuffer []int) []int {
 	widthsBuffer = widthsBuffer[:0]
+	if len(rsp.Weights) <= 1 {
+		widthsBuffer = append(widthsBuffer, totalWidth)
+		return widthsBuffer
+	}
 
-	//fmt.Printf("computeWidths: totalWidth = %d\n", totalWidth)
-	totalWidth -= rsp.Gap * max(len(rsp.Weights)-1, 0)
+	totalWidth -= gap * max(len(rsp.Weights)-1, 0)
 	if totalWidth <= 0 {
 		for range len(rsp.Weights) {
 			widthsBuffer = append(widthsBuffer, 0)
@@ -76,6 +101,12 @@ func (rsp *rowStackPattern) computeWidths(totalWidth int, widthsBuffer []int) []
 	return widthsBuffer
 }
 
+type helperFrameAlign struct {
+	Widget uikit.Widget
+	X, Y   int
+	W, H   int
+}
+
 var _ uikit.Layout = (*RowStack)(nil)
 
 // RowStack is a top to bottom layout where each row can have a
@@ -90,14 +121,20 @@ type RowStack struct {
 	padX, padY int
 	height     int
 	contentH   int
-	rowGap     int
+	hGap, vGap int
+	align      Align
 
 	widthsBuffer []int
+	framesBuffer []helperFrameAlign
+
+	// BeforeUpdate can be used to adjust children or configuration
+	// before layouting.
+	BeforeUpdate func(*uikit.Context, *RowStack)
 }
 
 // NewRowStack creates a RowStack with the given default pattern.
 func NewRowStack(theme *uikit.Theme, widthWeights ...float64) *RowStack {
-	defaultPattern := rowStackPattern{Weights: widthWeights, Gap: theme.SpaceS}
+	defaultPattern := rowStackPattern{Weights: widthWeights}
 	defaultPattern.normalize()
 
 	cfg := uikit.NewWidgetBaseConfig(theme)
@@ -105,6 +142,8 @@ func NewRowStack(theme *uikit.Theme, widthWeights ...float64) *RowStack {
 		Base:     uikit.NewBase(cfg),
 		Scroller: uikit.NewScroller(),
 		patterns: map[int]rowStackPattern{-1: defaultPattern},
+		hGap:     theme.SpaceS,
+		vGap:     theme.SpaceS,
 	}
 
 	l.Base.HeightCalculator = l.heightCalculator
@@ -118,23 +157,30 @@ func (l *RowStack) heightCalculator() int {
 	return l.height
 }
 
-// DefaultPattern returns the properties of the default row pattern.
-func (l *RowStack) DefaultPattern() (gap int, normWidthWeights []float64) {
+// DefaultPattern returns the weights of the default row pattern.
+func (l *RowStack) DefaultPattern() []float64 {
 	pattern := l.patterns[-1]
-	return pattern.Gap, pattern.Weights
+	return pattern.Weights
 }
 
 // SetRowPattern sets the widget distribution pattern of a specific row.
 // If rowIndex < 0, the given pattern is set as the default.
-func (l *RowStack) SetRowPattern(rowIndex int, itemGap int, widthWeights ...float64) {
-	pattern := rowStackPattern{Weights: slices.Clone(widthWeights), Gap: itemGap}
+func (l *RowStack) SetRowPattern(rowIndex int, widthWeights ...float64) {
+	pattern := rowStackPattern{Weights: slices.Clone(widthWeights)}
 	pattern.normalize()
 	rowIndex = max(rowIndex, -1)
 	l.patterns[rowIndex] = pattern
 }
 
-func (l *RowStack) SetRowGap(gap int) {
-	l.rowGap = gap
+// SetGap sets the horizontal gap between items and the vertical gap
+// between rows.
+func (l *RowStack) SetGap(horzGap, vertGap int) {
+	l.hGap, l.vGap = horzGap, vertGap
+}
+
+// SetItemAlign sets the vertical align for items within a row.
+func (l *RowStack) SetAlign(align Align) {
+	l.align = align
 }
 
 func (l *RowStack) Focusable() bool { return false }
@@ -165,10 +211,13 @@ func (l *RowStack) Clear() {
 }
 
 func (l *RowStack) Update(ctx *uikit.Context) {
+	if l.BeforeUpdate != nil {
+		l.BeforeUpdate(ctx, l)
+	}
+	l.doLayout(ctx)
 	if l.height > 0 {
 		l.Scroller.Update(ctx, l.Measure(false), l.height)
 	}
-	l.doLayout(ctx)
 
 	for _, ch := range l.children {
 		if !ch.IsVisible() {
@@ -191,18 +240,25 @@ func (l *RowStack) doLayout(ctx *uikit.Context) {
 	var anyVisible bool
 	rowIndex := 0
 	childIndex := 0
+	onBasePattern := false
 	for {
 		pattern, ok := l.patterns[rowIndex]
-		if !ok {
+		refreshWidths := ok || !onBasePattern
+		if !onBasePattern && !ok {
 			pattern = basePattern
 		}
-
-		l.widthsBuffer = pattern.computeWidths(contentWidth, l.widthsBuffer)
+		onBasePattern = !ok
+		if refreshWidths {
+			l.widthsBuffer = pattern.computeWidths(contentWidth, l.hGap, l.widthsBuffer)
+		}
 
 		maxHeight := 0
 		colIndex := 0
 		x := ox
-		for _, child := range l.children[childIndex:] {
+		l.framesBuffer = l.framesBuffer[:0]
+		children := l.children[childIndex:]
+		for _, child := range children {
+			childIndex += 1
 			if !child.IsVisible() {
 				continue
 			}
@@ -210,20 +266,37 @@ func (l *RowStack) doLayout(ctx *uikit.Context) {
 			anyVisible = true
 			width := l.widthsBuffer[colIndex]
 			child.SetFrame(x, y, width)
-			x += width + pattern.Gap
+			height := child.Measure(true).Dy()
+			l.framesBuffer = append(l.framesBuffer, helperFrameAlign{Widget: child, X: x, Y: y, W: width, H: height})
+			maxHeight = max(maxHeight, height)
+			x += width + l.hGap
 			colIndex += 1
+			if colIndex >= len(l.widthsBuffer) {
+				break
+			}
 		}
 		if colIndex == 0 {
-			break
+			break // no more children
 		}
-		l.contentH += maxHeight + l.rowGap
-		y += maxHeight + l.rowGap
+
+		// apply vertical centering if required
+		if l.align != AlignStart {
+			for _, f := range l.framesBuffer {
+				offset := l.align.Offset(f.H, maxHeight)
+				if offset != 0 {
+					f.Widget.SetFrame(f.X, f.Y+offset, f.W)
+				}
+			}
+		}
+
+		l.contentH += maxHeight + l.vGap
+		y += maxHeight + l.vGap
 
 		rowIndex += 1
 	}
 
 	if anyVisible {
-		l.contentH -= l.rowGap
+		l.contentH -= l.vGap
 	}
 }
 
