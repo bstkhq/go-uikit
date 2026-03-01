@@ -3,7 +3,7 @@ package widget
 import (
 	"image/color"
 
-	"github.com/erparts/go-uikit"
+	"github.com/bstkhq/go-uikit"
 	"github.com/tinne26/etxt"
 	"golang.org/x/image/font/sfnt"
 )

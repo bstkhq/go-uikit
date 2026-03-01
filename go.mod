@@ -1,4 +1,4 @@
-module github.com/erparts/go-uikit
+module github.com/bstkhq/go-uikit
 
 go 1.24.0
 

@@ -4,7 +4,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/erparts/go-uikit"
+	"github.com/bstkhq/go-uikit"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 

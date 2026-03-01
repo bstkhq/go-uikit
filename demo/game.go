@@ -7,9 +7,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/tinne26/etxt"
 
-	"github.com/erparts/go-uikit"
-	"github.com/erparts/go-uikit/layout"
-	"github.com/erparts/go-uikit/widget"
+	"github.com/bstkhq/go-uikit"
+	"github.com/bstkhq/go-uikit/layout"
+	"github.com/bstkhq/go-uikit/widget"
 )
 
 type Game struct {

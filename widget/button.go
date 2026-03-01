@@ -1,7 +1,7 @@
 package widget
 
 import (
-	"github.com/erparts/go-uikit"
+	"github.com/bstkhq/go-uikit"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/tinne26/etxt"

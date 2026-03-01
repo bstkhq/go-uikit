@@ -1,7 +1,7 @@
 package layout
 
 import (
-	"github.com/erparts/go-uikit"
+	"github.com/bstkhq/go-uikit"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 

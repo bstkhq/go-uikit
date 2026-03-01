@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/erparts/go-uikit/common"
+	"github.com/bstkhq/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 

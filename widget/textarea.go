@@ -4,8 +4,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/erparts/go-uikit"
-	"github.com/erparts/go-uikit/common"
+	"github.com/bstkhq/go-uikit"
+	"github.com/bstkhq/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"

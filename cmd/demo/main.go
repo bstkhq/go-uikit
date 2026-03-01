@@ -5,7 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/erparts/go-uikit/demo"
+	"github.com/bstkhq/go-uikit/demo"
 )
 
 func main() {

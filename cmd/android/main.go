@@ -1,7 +1,7 @@
 package mobile
 
 import (
-	"github.com/erparts/go-uikit/demo"
+	"github.com/bstkhq/go-uikit/demo"
 	"github.com/hajimehoshi/ebiten/v2/mobile"
 )
 

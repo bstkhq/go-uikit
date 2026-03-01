@@ -4,7 +4,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/erparts/go-uikit"
+	"github.com/bstkhq/go-uikit"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/tinne26/etxt"
 )
