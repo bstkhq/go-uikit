@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/erparts/go-shapes v0.0.0-20251211181419-8d4b776c77b9
-	github.com/hajimehoshi/ebiten/v2 v2.9.7
+	github.com/hajimehoshi/ebiten/v2 v2.8.9
 	github.com/tinne26/etxt v0.0.9
 	golang.org/x/image v0.31.0
 )

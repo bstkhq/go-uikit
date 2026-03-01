@@ -6,8 +6,8 @@ github.com/ebitengine/purego v0.9.0 h1:mh0zpKBIXDceC63hpvPuGLiJ8ZAa3DfrFTudmfi8A
 github.com/ebitengine/purego v0.9.0/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/erparts/go-shapes v0.0.0-20251211181419-8d4b776c77b9 h1:m3bv2x4gh8gu6wlcddnqM2IWK/8EU86pX4Q6TKd7Fgs=
 github.com/erparts/go-shapes v0.0.0-20251211181419-8d4b776c77b9/go.mod h1:C4L4XRiIKZJCUQNW8qIxwWRL2X26Tmk1Hwxus0n1elk=
-github.com/hajimehoshi/ebiten/v2 v2.9.7 h1:WuNgM24uJxwdLZLqM8SXLAGVBof/45udRjo2tJoTpM0=
-github.com/hajimehoshi/ebiten/v2 v2.9.7/go.mod h1:DAt4tnkYYpCvu3x9i1X/nK/vOruNXIlYq/tBXxnhrXM=
+github.com/hajimehoshi/ebiten/v2 v2.8.9 h1:qUkI++Dq5Jzcwio5vOIZj6kAkzvei9S3X9zrUJIKJDA=
+github.com/hajimehoshi/ebiten/v2 v2.8.9/go.mod h1:2W03LiNMJj7+mFtYbnZlSLoxovd2bpg4FzQR0pZhzAA=
 github.com/jezek/xgb v1.1.1 h1:bE/r8ZZtSv7l9gk6nU0mYx51aXrvnyb44892TwSaqS4=
 github.com/jezek/xgb v1.1.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
 github.com/tinne26/etxt v0.0.9 h1:C1yJcxl0BObZqxcK+lzrckYUKx5ifRD6s5WKBxooo6E=

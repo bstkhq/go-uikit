@@ -6,7 +6,6 @@ import (
 
 	"github.com/erparts/go-shapes"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/tinne26/etxt"
 )
 
@@ -14,14 +13,6 @@ var shapesRenderer = shapes.NewRenderer()
 
 func clampInt(v, lo, hi int) int {
 	return max(lo, min(hi, v))
-}
-
-func drawPathOptionsForColor(col color.RGBA) *vector.DrawPathOptions {
-	op := &vector.DrawPathOptions{
-		AntiAlias: true,
-	}
-	op.ColorScale.ScaleWithColor(col)
-	return op
 }
 
 func drawRoundedRect(dst *ebiten.Image, r image.Rectangle, radius int, col color.RGBA) {
