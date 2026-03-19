@@ -72,7 +72,7 @@ func (s *Scroller) Update(ctx *Context, viewport image.Rectangle, contentH int) 
 		s.showTicks = 18
 	}
 
-	if s.dragging && ptr.IsJustDown {
+	if s.dragging && ptr.IsDown {
 		dy := ptr.Position.Y - s.lastPY
 		s.ScrollY -= dy
 		s.lastPY = ptr.Position.Y
