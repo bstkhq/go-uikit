@@ -47,7 +47,7 @@ func (c *Context) Root() Layout {
 // It also synchronizes the IME visibility with the currently focused widget.
 func (c *Context) SetIMEBridge(b IMEBridge) {
 	c.ime = b
-	c.updateIMEForce(c.Focused())
+	c.updateIME(nil, c.Focused())
 }
 
 func (c *Context) Add(w Widget) {
@@ -125,42 +125,32 @@ func (c *Context) updateIME(oldW, newW Widget) {
 		return
 	}
 
-	oldWants := false
+	// note: the code isn't monitoring IME option changes within the same
+	// widget or anything. users could call Show()/Hide() directly on the
+	// IME bridge too, so we can't reliably cache such state anyway without
+	// more methods on android's side
+	var oldOpts, newOpts IMEOptions
+	var hadIME, hasIME bool
 	if oldW != nil {
-		if wi, ok := any(oldW).(WantsIME); ok && wi.WantsIME() {
-			oldWants = true
+		if w, ok := oldW.(IME); ok {
+			oldOpts = w.IME()
+			hadIME = true
 		}
 	}
-	newWants := false
+
 	if newW != nil {
-		if wi, ok := any(newW).(WantsIME); ok && wi.WantsIME() {
-			newWants = true
+		if w, ok := newW.(IME); ok {
+			hasIME = true
+			newOpts = w.IME()
 		}
 	}
 
-	// Only issue calls on state transitions.
-	if oldWants && !newWants {
+	if hadIME && !hasIME {
 		c.ime.Hide()
 	}
-	if !oldWants && newWants {
-		c.ime.Show()
-	}
-}
 
-func (c *Context) updateIMEForce(focused Widget) {
-	if c.ime == nil {
-		return
-	}
-	wants := false
-	if focused != nil {
-		if wi, ok := any(focused).(WantsIME); ok && wi.WantsIME() {
-			wants = true
-		}
-	}
-	if wants {
-		c.ime.Show()
-	} else {
-		c.ime.Hide()
+	if hasIME && (!hadIME || oldOpts != newOpts) {
+		c.ime.Show(newOpts)
 	}
 }
 

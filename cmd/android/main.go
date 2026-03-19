@@ -13,7 +13,7 @@ func init() {
 
 // IMEBridge will be generated as a Java interface that you can implement.
 type IMEBridge interface {
-	Show()
+	Show(int32) // note uikit.IMEOptions doesn't work, it needs to be strictly int32
 	Hide()
 }
 

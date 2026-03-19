@@ -22,6 +22,7 @@ type Game struct {
 
 	title        *widget.Label
 	txtA         *widget.TextInput
+	numA         *widget.TextInput
 	txtB         *widget.TextInput
 	txtDis       *widget.TextInput
 	ta           *widget.TextArea
@@ -82,6 +83,8 @@ func (g *Game) initOnce() {
 	g.exampleLabel = widget.NewLabel(g.theme, "Label example: static helper text")
 
 	g.txtA = widget.NewTextInput(g.theme, "Type here…")
+	g.numA = widget.NewTextInput(g.theme, "Numeric input...")
+	g.numA.IMEOptions = uikit.KeyboardNumber
 
 	g.txtB = widget.NewTextInput(g.theme, "Search…")
 	g.txtB.On(uikit.EventValueChange, func(e uikit.Event) bool {
@@ -182,6 +185,7 @@ func (g *Game) initOnce() {
 	contentWidgets := []uikit.Widget{
 		g.exampleLabel,
 		g.txtA,
+		g.numA,
 		g.txtB,
 		g.txtDis,
 		g.ta,

@@ -23,6 +23,8 @@ type TextInput struct {
 	placeholder string
 	caretTick   int
 
+	IMEOptions uikit.IMEOptions
+
 	// Reusable buffers to avoid allocations on every Update().
 	inputBuf  []rune
 	appendBuf []rune
@@ -39,9 +41,9 @@ func NewTextInput(theme *uikit.Theme, placeholder string) *TextInput {
 	return w
 }
 
-func (w *TextInput) Focusable() bool { return true }
-func (w *TextInput) WantsIME() bool  { return true }
-func (w *TextInput) Text() string    { return w.text }
+func (w *TextInput) Focusable() bool       { return true }
+func (w *TextInput) IME() uikit.IMEOptions { return w.IMEOptions }
+func (w *TextInput) Text() string          { return w.text }
 
 // SetText sets the current text value and dispatches a value-change event.
 func (w *TextInput) SetText(s string) {
