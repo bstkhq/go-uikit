@@ -21,8 +21,8 @@ type Game struct {
 	ctx   *uikit.Context
 
 	title        *widget.Label
+	txtType      *widget.Select
 	txtA         *widget.TextInput
-	numA         *widget.TextInput
 	txtB         *widget.TextInput
 	txtDis       *widget.TextInput
 	ta           *widget.TextArea
@@ -82,11 +82,30 @@ func (g *Game) initOnce() {
 
 	g.exampleLabel = widget.NewLabel(g.theme, "Label example: static helper text")
 
+	imeSelOpts := []widget.SelectOption{
+		{Value: uikit.KeyboardRaw, Label: "Raw"},
+		{Value: uikit.KeyboardText | uikit.CapsSentences | uikit.ActionSend, Label: "Capitalized"},
+		{Value: uikit.KeyboardText | uikit.ActionNext, Label: "Form"},
+		{Value: uikit.KeyboardMultiline, Label: "Multiline"},
+		{Value: uikit.KeyboardEmail | uikit.ActionSend, Label: "Email"},
+		{Value: uikit.KeyboardPassword | uikit.ActionGo, Label: "Password"},
+		{Value: uikit.KeyboardNumber, Label: "Number"},
+		{Value: uikit.KeyboardURI, Label: "URI"},
+		{Value: uikit.KeyboardPhone, Label: "Phone"},
+	}
+	g.txtType = widget.NewSelect(g.theme, imeSelOpts)
+	g.txtType.MaxVisible = len(imeSelOpts)
 	g.txtA = widget.NewTextInput(g.theme, "Type here…")
-	g.numA = widget.NewTextInput(g.theme, "Numeric input...")
-	g.numA.IMEOptions = uikit.KeyboardNumber
+	g.txtType.On(uikit.EventValueChange, func(e uikit.Event) bool {
+		s, isSelected := g.txtType.Selected()
+		if isSelected {
+			g.txtA.IMEOptions = s.Value.(uikit.IMEOptions)
+		}
+		return true
+	}, false)
 
 	g.txtB = widget.NewTextInput(g.theme, "Search…")
+	g.txtB.IMEOptions = uikit.KeyboardText | uikit.CapsWords | uikit.ActionSearch
 	g.txtB.On(uikit.EventValueChange, func(e uikit.Event) bool {
 		v := e.Widget.(*widget.TextInput).Text()
 		if v == "" {
@@ -184,8 +203,8 @@ func (g *Game) initOnce() {
 
 	contentWidgets := []uikit.Widget{
 		g.exampleLabel,
+		g.txtType,
 		g.txtA,
-		g.numA,
 		g.txtB,
 		g.txtDis,
 		g.ta,

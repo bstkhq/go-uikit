@@ -150,7 +150,8 @@ func (c *Context) updateIME(oldW, newW Widget) {
 	}
 
 	if hasIME && (!hadIME || oldOpts != newOpts) {
-		c.ime.Show(newOpts)
+		inType, imeOpts := newOpts.AndroidParameters()
+		c.ime.Show(inType, imeOpts)
 	}
 }
 
