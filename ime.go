@@ -13,8 +13,8 @@ type IME interface {
 }
 
 // IMEOptions control the IME input type and options. There are three
-// parts that can be controlled: the keyboard type, the submit icon and the
-// capitalization. Options can be combined with bitwise ORs:
+// parts that can be controlled: the keyboard type, the submit/action icon
+// and capitalization. Options can be combined with bitwise ORs:
 //
 //	opts := KeyboardEmail // keyboard includes @ and .com more prominently
 //	opts := KeyboardURI | ActionSearch // combine two options
@@ -22,8 +22,9 @@ type IME interface {
 //	opts := KeyboardText | ActionSend | CapsSentences // all options
 type IMEOptions = int32
 
+// IMEOptions constants.
 const (
-	// Keyboard Types
+	// keyboard Types
 	KeyboardText      IMEOptions = 0x000
 	KeyboardMultiline IMEOptions = 0x100
 	KeyboardNumber    IMEOptions = 0x200
@@ -32,7 +33,7 @@ const (
 	KeyboardURI       IMEOptions = 0x500
 	KeyboardPassword  IMEOptions = 0x600
 
-	// action type (defaults to return), typically affects the icon
+	// action type, typically affects the icon (defaults to return key)
 	ActionGo     IMEOptions = 0x010
 	ActionSearch IMEOptions = 0x020
 	ActionSend   IMEOptions = 0x030
