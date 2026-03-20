@@ -49,6 +49,16 @@ const (
 	CapsSentences IMEOptions = 0x001
 	CapsWords     IMEOptions = 0x002
 	CapsAll       IMEOptions = 0x003
+
+	// other flags
+
+	// NoSuggestions is intended only for KeyboardText,
+	// and is ignored by most IMEs in practice.
+	NoSuggestions IMEOptions = 0x1000
+
+	// NoPersonalizedLearning enters an "incognito" mode, often
+	// including icons or a color change to reflect it.
+	NoPersonalizedLearning IMEOptions = 0x2000
 )
 
 const (
@@ -78,6 +88,9 @@ const (
 	android_IME_ACTION_SEND   int32 = 0x00000004
 	android_IME_ACTION_NEXT   int32 = 0x00000005
 	android_IME_ACTION_DONE   int32 = 0x00000006
+
+	// misc
+	andoid_IME_FLAG_NO_PERSONALIZED_LEARNING int32 = 0x01000000
 )
 
 // AndroidParameters returns the inputType and imeOptions to be
@@ -86,6 +99,13 @@ func (o IMEOptions) AndroidParameters() (int32, int32) {
 	inputType := o.extractInputType()
 	inputType = o.applyCapitalization(inputType)
 	imeOptions := o.extractImeOptions()
+
+	if o&NoSuggestions == NoSuggestions {
+		inputType |= android_TYPE_TEXT_FLAG_NO_SUGGESTIONS
+	}
+	if o&NoPersonalizedLearning == NoPersonalizedLearning {
+		imeOptions |= andoid_IME_FLAG_NO_PERSONALIZED_LEARNING
+	}
 	return inputType, imeOptions
 }
 
