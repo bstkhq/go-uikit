@@ -10,16 +10,12 @@ import (
 var _ uikit.Widget = (*Button)(nil)
 
 // Button is a clickable control with hover/pressed/disabled visuals.
-// - Click triggers on pointer release inside the widget.
-// - Enter/Space triggers click when focused.
+//
+// In addition to standard [EventClick] triggering, pressing Enter and
+// Space will also dispatch a click event for buttons.
 type Button struct {
 	uikit.Base
-
-	label   string
-	OnClick func()
-
-	// internal: tracks if the press started inside this widget
-	pressedInside bool
+	label string
 }
 
 func NewButton(theme *uikit.Theme, label string) *Button {
@@ -39,39 +35,14 @@ func (w *Button) SetLabel(s string) {
 	w.label = s
 }
 
-// fireClick dispatches a click event and calls OnClick handler.
-func (w *Button) fireClick() {
-	w.Dispatch(uikit.Event{Widget: w, Type: uikit.EventClick})
-	if w.OnClick != nil {
-		w.OnClick()
-	}
-}
-
 func (w *Button) Update(ctx *uikit.Context) {
 	if !w.IsEnabled() {
-		w.pressedInside = false
 		return
 	}
 
 	if w.IsFocused() && (inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace)) {
-		w.fireClick()
+		w.Dispatch(uikit.Event{Widget: w, Type: uikit.EventClick})
 		return
-	}
-
-	ptr := ctx.Pointer()
-	inside := ptr.Position.In(w.Measure(false))
-
-	// Start press inside
-	if ptr.IsJustDown && inside {
-		w.pressedInside = true
-	}
-
-	if ptr.IsJustDown {
-		if w.pressedInside && inside {
-			w.fireClick()
-		}
-
-		w.pressedInside = false
 	}
 }
 

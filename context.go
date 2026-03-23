@@ -15,10 +15,11 @@ type Context struct {
 	widgets []Widget
 	focus   int // -1 means none
 
-	ptr         *PointerStatus
-	hasTouch    bool
-	prevTouches map[ebiten.TouchID]struct{}
-	dstBounds   image.Rectangle
+	ptr            *PointerStatus
+	clickStartRect image.Rectangle
+	hasTouch       bool
+	prevTouches    map[ebiten.TouchID]struct{}
+	dstBounds      image.Rectangle
 }
 
 func NewContext(theme *Theme, root Layout, ime IMEBridge) *Context {
@@ -314,6 +315,7 @@ func (c *Context) Update() {
 
 		// Pointer down routed to the chosen target.
 		if c.ptr.IsJustDown && target == w && w.IsEnabled() {
+			c.clickStartRect = w.Measure(false)
 			w.SetPressed(true)
 			w.Dispatch(Event{Widget: w, Type: EventPointerDown, Pointer: c.ptr})
 		}
@@ -324,7 +326,7 @@ func (c *Context) Update() {
 			if wasPressed {
 				w.Dispatch(Event{Widget: w, Type: EventPointerUp, Pointer: c.ptr})
 
-				if w.IsEnabled() && c.widgetHit(w, c.ptr.Position) {
+				if w.IsEnabled() && c.widgetHit(w, c.ptr.Position) && c.ptr.Position.In(c.clickStartRect) {
 					w.Dispatch(Event{Widget: w, Type: EventClick, Pointer: c.ptr})
 				}
 			}
