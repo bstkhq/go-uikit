@@ -24,6 +24,8 @@ type TextArea struct {
 	lines  int
 	Scroll uikit.Scroller
 
+	IMEOptions uikit.IMEOptions
+
 	// Caret config (end-of-text caret)
 	CaretWidthPx  int
 	CaretBlinkMs  int
@@ -69,9 +71,9 @@ func (w *TextArea) calculateHeight() int {
 	return controlH
 }
 
-func (w *TextArea) Focusable() bool { return true }
-func (w *TextArea) WantsIME() bool  { return true }
-func (w *TextArea) Text() string    { return w.text }
+func (w *TextArea) Focusable() bool       { return true }
+func (w *TextArea) IME() uikit.IMEOptions { return w.IMEOptions }
+func (w *TextArea) Text() string          { return w.text }
 
 func (w *TextArea) SetText(s string) {
 	if w.text == s {

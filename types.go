@@ -43,12 +43,6 @@ type ValidableWidget interface {
 	ClearInvalid()
 }
 
-// TextWidget is implemented by widgets that want to control the platform IME (e.g., TextInput, TextArea).
-type TextWidget interface {
-	Widget
-	WantsIME() bool
-}
-
 // Hittable allows a widget to extend its clickable area beyond Base.ControlRect.
 type Hittable interface {
 	HitTest(ctx *Context, pos image.Point) bool
