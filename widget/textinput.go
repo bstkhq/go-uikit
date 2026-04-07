@@ -29,6 +29,7 @@ type TextInput struct {
 	wasFocused  bool
 
 	IMEOptions uikit.IMEOptions
+	OnCommit   func(*uikit.Context)
 
 	// Reusable buffers to avoid allocations on every Update().
 	textRunes []rune
@@ -192,7 +193,11 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 
 	// remove focus on Enter
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
-		ctx.SetFocus(nil)
+		if w.OnCommit != nil {
+			w.OnCommit(ctx)
+		} else {
+			ctx.SetFocus(nil)
+		}
 	}
 }
 
@@ -342,5 +347,9 @@ func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 }
 
 func (w *TextInput) blink(theme *uikit.Theme) bool {
-	return (w.caretTick/blinkTicks(theme))%2 == 0
+	ticks := blinkTicks(theme)
+	if ticks <= 0 {
+		return false
+	}
+	return (w.caretTick/ticks)%2 == 0
 }

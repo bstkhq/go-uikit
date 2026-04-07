@@ -1,7 +1,6 @@
 package widget
 
 import (
-	"math"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -12,7 +11,7 @@ import (
 
 // blink ticks returns the length of "blink on", which equals "blink off"
 func blinkTicks(theme *uikit.Theme) int {
-	return int(math.Max(1, float64(theme.CaretBlink*time.Duration(ebiten.TPS()))/float64(time.Second)))
+	return int(float64(theme.CaretBlink*time.Duration(ebiten.TPS())) / float64(time.Second))
 }
 
 // removeLastRune removes the last UTF-8 rune from the provided string.
