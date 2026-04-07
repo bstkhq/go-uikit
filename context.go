@@ -125,23 +125,20 @@ func (c *Context) updateIME(oldW, newW Widget) {
 		return
 	}
 
-	// note: the code isn't monitoring IME option changes within the same
-	// widget or anything. users could call Show()/Hide() directly on the
-	// IME bridge too, so we can't reliably cache such state anyway without
-	// more methods on android's side
-	var oldOpts, newOpts IMEOptions
+	// note: IME shown status can't be reliable monitored. Users can call
+	// Show()/Hide() on their own, and Android also doesn't expose this
+	var opts IMEOptions
 	var hadIME, hasIME bool
-	if oldW != nil {
-		if w, ok := oldW.(IME); ok {
-			oldOpts = w.IME()
+	if oldW != nil && oldW.IsEnabled() {
+		if _, ok := oldW.(IME); ok {
 			hadIME = true
 		}
 	}
 
-	if newW != nil {
+	if newW != nil && newW.IsEnabled() {
 		if w, ok := newW.(IME); ok {
 			hasIME = true
-			newOpts = w.IME()
+			opts = w.IME()
 		}
 	}
 
@@ -149,8 +146,8 @@ func (c *Context) updateIME(oldW, newW Widget) {
 		c.ime.Hide()
 	}
 
-	if hasIME && (!hadIME || oldOpts != newOpts) {
-		inType, imeOpts := newOpts.AndroidParameters()
+	if hasIME {
+		inType, imeOpts := opts.AndroidParameters()
 		c.ime.Show(inType, imeOpts)
 	}
 }
