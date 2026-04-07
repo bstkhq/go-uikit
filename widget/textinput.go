@@ -1,15 +1,15 @@
 package widget
 
 import (
+	"image"
 	"math"
-	"time"
-	"unicode/utf8"
+	"slices"
 
 	"github.com/bstkhq/go-uikit"
 	"github.com/bstkhq/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/tinne26/etxt"
 )
 
 var _ uikit.Widget = (*TextInput)(nil)
@@ -22,11 +22,15 @@ type TextInput struct {
 	text        string
 	placeholder string
 	caretTick   int
+	caretPos    int
+	scrollPos   int  // in runes
+	anchorRight bool // for scrollPos
+	wasFocused  bool
 
 	IMEOptions uikit.IMEOptions
 
 	// Reusable buffers to avoid allocations on every Update().
-	inputBuf  []rune
+	textRunes []rune
 	appendBuf []rune
 }
 
@@ -50,14 +54,25 @@ func (w *TextInput) SetText(s string) {
 	if w.text == s {
 		return
 	}
-	w.text = s
+
+	w.SetTextSilently(s)
 	w.Dispatch(uikit.Event{Widget: w, Type: uikit.EventValueChange})
 }
 
 // SetTextSilently sets the current text value without dispatching events.
 // Useful internally to batch changes and dispatch once.
 func (w *TextInput) SetTextSilently(s string) {
+	if w.text == s {
+		return
+	}
+
 	w.text = s
+	w.textRunes = w.textRunes[:0]
+	for _, r := range s {
+		w.textRunes = append(w.textRunes, r)
+	}
+	w.caretPos = min(w.caretPos, len(w.textRunes))
+	w.scrollPos = max(0, w.scrollPos)
 }
 
 // AppendText appends a string to the current text and dispatches a value-change event.
@@ -70,155 +85,205 @@ func (w *TextInput) AppendText(s string) {
 
 // Reset clears the current text.
 func (w *TextInput) Reset() {
+	w.wasFocused = false
 	w.SetText("")
 }
 
-// removeLastRune removes the last UTF-8 rune from the provided string.
-func removeLastRune(s string) string {
-	if s == "" {
-		return ""
-	}
-	_, sz := utf8.DecodeLastRuneInString(s)
-	if sz <= 0 || sz > len(s) {
-		return ""
-	}
-	return s[:len(s)-sz]
-}
-
 func (w *TextInput) Update(ctx *uikit.Context) {
-	focused := w.IsFocused()
-	enabled := w.IsEnabled()
-
-	if focused && enabled {
-		w.caretTick++
-	} else {
-		w.caretTick = 0
+	w.caretTick += 1
+	if w.wasFocused != w.IsFocused() {
+		if !w.wasFocused {
+			w.caretTick = 0
+			w.wasFocused = !w.wasFocused
+		}
 	}
 
-	if !focused || !enabled {
+	if !w.IsFocused() || !w.IsEnabled() {
 		return
 	}
 
-	original := w.text
-	text := original
-
-	// Reuse buffer to avoid allocations.
-	w.inputBuf = ebiten.AppendInputChars(w.inputBuf[:0])
-
-	// Batch normal runes to avoid repeated string concatenations.
-	w.appendBuf = w.appendBuf[:0]
-
-	flushAppend := func() {
-		if len(w.appendBuf) == 0 {
-			return
+	var changed bool
+	w.appendBuf = ebiten.AppendInputChars(w.appendBuf[:0])
+	for _, r := range w.appendBuf {
+		switch {
+		case r == 0x08: // BS
+			changed = w.deleteRuneBS() || changed
+		case r == 0x7f: // DEL
+			changed = w.deleteRuneDEL() || changed
+		case r >= 0x20: // append runes >= ' ' (ignore control chars)
+			w.textRunes = slices.Insert(w.textRunes, w.caretPos, r) // could be optimized
+			w.caretPos += 1
+			changed = true
 		}
-		text += string(w.appendBuf)
-		w.appendBuf = w.appendBuf[:0]
 	}
 
-	// IME / input chars
-	for _, ch := range w.inputBuf {
-		// Backspace can arrive as '\b' or DEL.
-		if ch == '\b' || ch == 0x7f {
-			flushAppend()
-			text = removeLastRune(text)
-			continue
-		}
+	// handle other special keys
+	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+		changed = w.deleteRuneBS() || changed
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) {
+		changed = w.deleteRuneDEL() || changed
+	}
+	w.updateNav()
 
-		// Skip control characters.
-		if ch < 0x20 {
-			continue
-		}
-
-		w.appendBuf = append(w.appendBuf, ch)
+	// update text and dispatch changes
+	if changed {
+		w.caretTick = 0
+		w.text = string(w.textRunes)
+		w.Dispatch(uikit.Event{Widget: w, Type: uikit.EventValueChange})
 	}
 
-	flushAppend()
-
-	// Desktop / fallback backspace handling (Android IME can be inconsistent).
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) || inpututil.IsKeyJustPressed(ebiten.KeyDelete) {
-		text = removeLastRune(text)
-	}
-
-	// Commit focus changes (no text modification).
+	// remove focus on Enter
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
 		ctx.SetFocus(nil)
 	}
+}
 
-	// Dispatch only once if something actually changed.
-	if text != original {
-		w.SetText(text)
+func (w *TextInput) updateNav() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
+		w.caretTick = 0
+		if w.caretPos > 0 {
+			if ebiten.IsKeyPressed(ebiten.KeyControl) {
+				w.caretPos = prevBreakPos(w.textRunes, w.caretPos)
+			} else {
+				w.caretPos -= 1
+			}
+		}
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
+		w.caretTick = 0
+		if w.caretPos < len(w.textRunes) {
+			if ebiten.IsKeyPressed(ebiten.KeyControl) {
+				w.caretPos = nextBreakPos(w.textRunes, w.caretPos)
+			} else {
+				w.caretPos += 1
+			}
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyHome) || inpututil.IsKeyJustPressed(ebiten.KeyPageUp) {
+		w.caretPos = 0
+		w.caretTick = 0
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyEnd) || inpututil.IsKeyJustPressed(ebiten.KeyPageDown) {
+		w.caretPos = len(w.textRunes)
+		w.caretTick = 0
 	}
 }
 
+func (w *TextInput) deleteRuneBS() bool {
+	if len(w.textRunes) == 0 || w.caretPos <= 0 {
+		return false
+	}
+	start := w.caretPos - 1
+	if ebiten.IsKeyPressed(ebiten.KeyControl) {
+		start = prevBreakPos(w.textRunes, w.caretPos)
+	}
+	w.textRunes = slices.Delete(w.textRunes, start, w.caretPos)
+	w.caretPos -= (w.caretPos - start)
+	return true
+}
+
+func (w *TextInput) deleteRuneDEL() bool {
+	if len(w.textRunes) == 0 {
+		return false
+	}
+	if w.caretPos >= len(w.textRunes) {
+		return w.deleteRuneBS()
+	}
+
+	end := w.caretPos + 1
+	if ebiten.IsKeyPressed(ebiten.KeyControl) {
+		end = nextBreakPos(w.textRunes, w.caretPos)
+	}
+
+	w.textRunes = slices.Delete(w.textRunes, w.caretPos, end)
+	return true
+}
+
 func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
-	w.Base.Draw(ctx, dst)
-
+	r := w.Base.Draw(ctx, dst)
 	theme := ctx.Theme()
-	r := w.Measure(false)
+	cy := r.Min.Y + r.Dy()/2
+	r = common.Inset(r, theme.PadX, theme.PadY)
 
-	content := common.Inset(r, theme.PadX, theme.PadY)
-	middleY := r.Min.Y + r.Dy()/2
-
-	// Decide what to render: actual text or placeholder.
-	drawStr := w.text
-	textCol := theme.TextColor
-	if drawStr == "" && !w.IsFocused() {
-		drawStr = w.placeholder
-		textCol = theme.MutedTextColor
+	// if no text and unfocused, draw placeholder
+	renderer := theme.Text()
+	if len(w.textRunes) == 0 && !w.IsFocused() {
+		if w.placeholder != "" {
+			renderer.SetColor(theme.MutedTextColor)
+			renderer.Draw(dst, w.placeholder, r.Min.X, cy)
+		}
+		return
 	}
 
-	t := theme.Text()
-
-	// Horizontal overflow handling (keep the end visible).
-	m := t.Measure(drawStr)
-	textW := m.ImageRect().Dx()
-
-	shiftX := 0
-	if textW > content.Dx() {
-		shiftX = content.Dx() - textW
+	// find caret and scroll anchor positions
+	feed := etxt.NewFeed(renderer)
+	caretShift, scrollShift := -1, -1
+	for i, r := range w.textRunes {
+		if i == w.caretPos {
+			caretShift = feed.Position.X.ToIntFloor()
+			if scrollShift != -1 {
+				break
+			}
+		}
+		if i == w.scrollPos {
+			scrollShift = feed.Position.X.ToIntFloor()
+			if caretShift != -1 {
+				break
+			}
+		}
+		feed.Advance(r)
+	}
+	if caretShift == -1 {
+		caretShift = feed.Position.X.ToIntFloor()
+	}
+	if scrollShift == -1 {
+		scrollShift = feed.Position.X.ToIntFloor()
 	}
 
-	// Draw text centered vertically.
-	t.SetColor(textCol)
-	t.Draw(dst, drawStr, content.Min.X+shiftX, middleY)
-
-	// Caret drawing (end-of-text caret).
-	if w.IsFocused() && w.IsEnabled() && theme.CaretWidthPx > 0 {
-		blinkFrames := int(math.Max(1, float64(theme.CaretBlink)/float64(time.Second)*60.0))
-		if (w.caretTick/blinkFrames)%2 == 0 {
-			measureStr := w.text
-			if measureStr == "" {
-				measureStr = " "
-			}
-
-			mc := t.Measure(measureStr)
-
-			cx := content.Min.X + shiftX + mc.IntWidth() + theme.CaretMarginPx
-			if w.text == "" {
-				cx = content.Min.X + shiftX + theme.CaretMarginPx
-			}
-
-			caretH := mc.IntHeight()
-			cy := middleY - (caretH / 2)
-
-			// Clamp caret into content rect.
-			if cx < content.Min.X {
-				cx = content.Min.X
-			}
-			if cx > content.Min.X+content.Dx() {
-				cx = content.Min.X + content.Dx()
-			}
-
-			vector.DrawFilledRect(
-				dst,
-				float32(cx),
-				float32(cy),
-				float32(theme.CaretWidthPx),
-				float32(caretH),
-				theme.CaretColor,
-				false,
-			)
+	// adjust scroll to view area
+	width := r.Dx()
+	if w.anchorRight {
+		if scrollShift-caretShift > width { // switch to anchor left
+			w.anchorRight = false
+			w.scrollPos = w.caretPos
+			scrollShift = caretShift
+		} else if feed.Position.X.ToIntFloor() < width { // restore full left anchor
+			w.anchorRight = false
+			w.scrollPos = 0
+			scrollShift = 0
+		} else if w.caretPos > w.scrollPos { // expand right
+			w.scrollPos = w.caretPos
+			scrollShift = caretShift
+		}
+	} else { // anchor left
+		if caretShift-scrollShift > width { // switch to anchor right
+			w.anchorRight = true
+			w.scrollPos = w.caretPos
+			scrollShift = caretShift
+		} else if w.caretPos < w.scrollPos { // expand left
+			w.scrollPos = w.caretPos
+			scrollShift = caretShift
 		}
 	}
+
+	// draw text
+	shift := -scrollShift
+	if w.anchorRight {
+		shift += width
+	}
+	renderer.Draw(dst, w.text, r.Min.X+shift, cy)
+
+	// draw caret
+	if w.IsFocused() && w.IsEnabled() && theme.CaretWidthPx > 0 && w.blink(theme) {
+		lineHeight := int(math.Round(renderer.Utils().GetLineHeight()))
+		x := r.Min.X + caretShift + shift + theme.CaretMarginPx
+		cy -= (lineHeight / 2)
+		b := dst.Bounds()
+		cy -= b.Min.Y
+		x -= b.Min.X
+		w.Base.DrawRoundedRect(dst, image.Rect(x, cy, x+theme.CaretWidthPx, cy+lineHeight), 0, theme.CaretColor)
+	}
+}
+
+func (w *TextInput) blink(theme *uikit.Theme) bool {
+	return (w.caretTick/blinkTicks(theme))%2 == 0
 }
