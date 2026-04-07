@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/tinne26/etxt"
+	"github.com/tinne26/etxt/fract"
 )
 
 var _ uikit.Widget = (*TextInput)(nil)
@@ -81,6 +82,62 @@ func (w *TextInput) AppendText(s string) {
 		return
 	}
 	w.SetText(w.text + s)
+}
+
+// Caret returns the current caret index, in runes.
+func (w *TextInput) Caret() int {
+	return w.caretPos
+}
+
+// SetCaret manually changes the caret position, in runes.
+// Values out of range will be clamped.
+func (w *TextInput) SetCaret(index int) {
+	w.caretPos = min(max(index, 0), len(w.textRunes))
+}
+
+// ClosestCaretIndex performs hit testing to find the caret index
+// closest to the given X coordinate. Since TextInput only has one
+// line of text, the Y coordinate is not required.
+func (w *TextInput) ClosestCaretIndex(x int) int {
+	theme := w.Theme()
+	r := w.Measure(false)
+	r = r.Inset(theme.PadX)
+
+	if x <= r.Min.X {
+		return 0
+	}
+	if x >= r.Max.X {
+		return len(w.textRunes)
+	}
+
+	// find shift
+	feed := etxt.NewFeed(theme.Text())
+	for i, r := range w.textRunes {
+		if i == w.scrollPos {
+			break
+		}
+		feed.Advance(r)
+	}
+	shift := -feed.Position.X
+	if w.anchorRight {
+		shift += fract.FromInt(r.Dx())
+	}
+
+	// find nearest caret
+	feed.Reset()
+	feed.Renderer = theme.Text()
+	fx := fract.FromInt(x)
+	feed.Position.X = fract.FromInt(r.Min.X) + shift
+	closestDist := (fx - feed.Position.X).Abs()
+	for i, r := range w.textRunes {
+		feed.Advance(r)
+		dist := (fx - feed.Position.X).Abs()
+		if dist > closestDist { // prev was best
+			return i
+		}
+		closestDist = dist
+	}
+	return len(w.textRunes)
 }
 
 // Reset clears the current text.
