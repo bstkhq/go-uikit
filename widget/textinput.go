@@ -163,7 +163,7 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 	}
 	if w.inputLimitTick > 0 {
 		w.inputLimitTick += 1
-		if w.inputLimitTick > (ebiten.TPS()*2)/5 {
+		if w.inputLimitTick > ebiten.TPS()/3 {
 			w.inputLimitTick = 0
 		}
 	}
@@ -355,12 +355,19 @@ func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 		}
 	}
 
+	// compute text shake for hitting input limit
+	var yShake int
+	if w.inputLimitTick > 0 {
+		elapsed := float64(w.inputLimitTick) / float64(max(ebiten.TPS(), 1))
+		yShake = int(math.Round(math.Mod(elapsed*36, 3.0) - 1.25))
+	}
+
 	// draw text
 	shift := -scrollShift
 	if w.anchorRight {
 		shift += width
 	}
-	renderer.Draw(dst, w.text, r.Min.X+shift, cy)
+	renderer.Draw(dst, w.text, r.Min.X+shift, cy+yShake)
 
 	// draw caret
 	if w.IsFocused() && w.IsEnabled() && theme.CaretWidthPx > 0 && w.blink(theme) {
