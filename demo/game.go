@@ -96,6 +96,7 @@ func (g *Game) initOnce() {
 	g.txtType = widget.NewSelect(g.theme, imeSelOpts)
 	g.txtType.MaxVisible = len(imeSelOpts)
 	g.txtA = widget.NewTextInput(g.theme, "Type here…")
+	g.txtA.SetInputRuneLimit(22)
 	g.txtType.On(uikit.EventValueChange, func(e uikit.Event) bool {
 		s, isSelected := g.txtType.Selected()
 		if isSelected {

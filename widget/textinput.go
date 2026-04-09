@@ -31,6 +31,9 @@ type TextInput struct {
 	IMEOptions uikit.IMEOptions
 	OnCommit   func(*uikit.Context)
 
+	inputRuneLimit int
+	inputLimitTick int
+
 	// Reusable buffers to avoid allocations on every Update().
 	textRunes []rune
 	appendBuf []rune
@@ -75,6 +78,17 @@ func (w *TextInput) SetTextSilently(s string) {
 	}
 	w.caretPos = min(w.caretPos, len(w.textRunes))
 	w.scrollPos = max(0, w.scrollPos)
+}
+
+// SetInputRuneLimit limits the max number of code points that can be
+// entered by the user.
+//
+// Notice that this doesn't apply retroactively nor to manual operations
+// like [TextInput.SetText]().
+//
+// If limit <= 0, the input is unlimited.
+func (w *TextInput) SetInputRuneLimit(limit int) {
+	w.inputRuneLimit = max(limit, 0)
 }
 
 // Caret returns the current caret index, in runes.
@@ -147,6 +161,12 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 			w.wasFocused = !w.wasFocused
 		}
 	}
+	if w.inputLimitTick > 0 {
+		w.inputLimitTick += 1
+		if w.inputLimitTick > (ebiten.TPS()*2)/5 {
+			w.inputLimitTick = 0
+		}
+	}
 
 	if !w.IsEnabled() {
 		return
@@ -172,9 +192,14 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 		case r == 0x7f: // DEL
 			changed = w.deleteRuneDEL() || changed
 		case r >= 0x20: // append runes >= ' ' (ignore control chars)
-			w.textRunes = slices.Insert(w.textRunes, w.caretPos, r) // could be optimized
-			w.caretPos += 1
-			changed = true
+			if w.inputRuneLimit == 0 || len(w.textRunes) < w.inputRuneLimit {
+				w.textRunes = slices.Insert(w.textRunes, w.caretPos, r) // could be optimized
+				w.caretPos += 1
+				changed = true
+			} else {
+				w.caretTick = 0
+				w.inputLimitTick = 1
+			}
 		}
 	}
 
@@ -345,7 +370,11 @@ func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 		b := dst.Bounds()
 		cy -= b.Min.Y
 		x -= b.Min.X
-		w.Base.DrawRoundedRect(dst, image.Rect(x, cy, x+theme.CaretWidthPx, cy+lineHeight), 0, theme.CaretColor)
+		clr := theme.CaretColor
+		if w.inputLimitTick > 0 {
+			clr = theme.ErrorTextColor
+		}
+		w.Base.DrawRoundedRect(dst, image.Rect(x, cy, x+theme.CaretWidthPx, cy+lineHeight), 0, clr)
 	}
 }
 
