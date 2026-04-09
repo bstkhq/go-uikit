@@ -77,14 +77,6 @@ func (w *TextInput) SetTextSilently(s string) {
 	w.scrollPos = max(0, w.scrollPos)
 }
 
-// AppendText appends a string to the current text and dispatches a value-change event.
-func (w *TextInput) AppendText(s string) {
-	if s == "" {
-		return
-	}
-	w.SetText(w.text + s)
-}
-
 // Caret returns the current caret index, in runes.
 func (w *TextInput) Caret() int {
 	return w.caretPos
