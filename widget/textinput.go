@@ -156,7 +156,18 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 		}
 	}
 
-	if !w.IsFocused() || !w.IsEnabled() {
+	if !w.IsEnabled() {
+		return
+	}
+
+	ptr := ctx.Pointer()
+	if ptr.IsDown && ptr.Position.In(w.Measure(false)) {
+		w.caretTick = 0
+		index := w.ClosestCaretIndex(ptr.Position.X)
+		w.SetCaret(index)
+	}
+
+	if !w.IsFocused() {
 		return
 	}
 
