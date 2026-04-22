@@ -279,7 +279,7 @@ func (c *Context) topmostAt(pos image.Point) Widget {
 func (c *Context) Update() {
 	c.readPointerSnapshot()
 	c.root.SetHeight(c.dstBounds.Dy())
-	c.root.SetFrame(c.dstBounds.Min.X, c.dstBounds.Min.X, c.dstBounds.Dx())
+	c.root.SetFrame(c.dstBounds.Min.X, c.dstBounds.Min.Y, c.dstBounds.Dx())
 	c.root.Update(c)
 
 	c.rebuildWidgets()
