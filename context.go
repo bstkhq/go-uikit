@@ -20,6 +20,13 @@ type Context struct {
 	hasTouch       bool
 	prevTouches    map[ebiten.TouchID]struct{}
 	dstBounds      image.Rectangle
+
+	// PointerMapper receives a coordinate pair consistent with
+	// Game.Layout and returns the corresponding offscreen position.
+	//
+	// This allows arbitrary pointer projections when the UI has to
+	// be drawn to an offscreen first and then projected.
+	PointerMapper func(image.Point) image.Point
 }
 
 func NewContext(theme *Theme, root Layout, ime IMEBridge) *Context {
@@ -224,6 +231,9 @@ func (c *Context) readPointerSnapshot() {
 			c.ptr.IsDown = true
 			c.ptr.IsTouch = true
 			c.ptr.Position.X, c.ptr.Position.Y = ebiten.TouchPosition(c.ptr.TouchID)
+			if c.PointerMapper != nil {
+				c.ptr.Position = c.PointerMapper(c.ptr.Position)
+			}
 		} else {
 			c.ptr.IsDown = false
 			c.ptr.IsTouch = true
@@ -235,6 +245,9 @@ func (c *Context) readPointerSnapshot() {
 	}
 
 	c.ptr.Position.X, c.ptr.Position.Y = ebiten.CursorPosition()
+	if c.PointerMapper != nil {
+		c.ptr.Position = c.PointerMapper(c.ptr.Position)
+	}
 	c.ptr.IsDown = ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
 	c.ptr.IsJustDown = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 	c.ptr.IsJustUp = inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft)
@@ -266,7 +279,7 @@ func (c *Context) topmostAt(pos image.Point) Widget {
 func (c *Context) Update() {
 	c.readPointerSnapshot()
 	c.root.SetHeight(c.dstBounds.Dy())
-	c.root.SetFrame(0, 0, c.dstBounds.Dx())
+	c.root.SetFrame(c.dstBounds.Min.X, c.dstBounds.Min.Y, c.dstBounds.Dx())
 	c.root.Update(c)
 
 	c.rebuildWidgets()
