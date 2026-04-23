@@ -2,6 +2,7 @@ package demo
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -230,24 +231,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.ctx.Draw(screen)
 }
 
-func (g *Game) Layout(outW, outH int) (int, int) {
+func (g *Game) Layout(w, h int) (int, int) {
 	g.initOnce()
 
+	var scale float64 = 1.0
 	m := ebiten.Monitor()
-	if m == nil {
-		return 0, 0
+	if m != nil {
+		scale = m.DeviceScaleFactor()
+		if scale <= 0.0 {
+			scale = 1.0
+		}
 	}
 
-	dev := m.DeviceScaleFactor()
-	if dev <= 0 {
-		dev = 1
-	}
-
-	// Optional: make UI a bit larger on small screens.
-	minSide := float64(outW)
-	if float64(outH) < minSide {
-		minSide = float64(outH)
-	}
-
-	return outW, outH
+	return int(math.Ceil(float64(w) * scale)), int(math.Ceil(float64(h) * scale))
 }

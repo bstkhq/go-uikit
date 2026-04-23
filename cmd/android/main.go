@@ -7,7 +7,7 @@ import (
 
 var g = demo.New()
 
-func init() {
+func SetAndroidID(id int) {
 	mobile.SetGame(g)
 }
 
