@@ -19,6 +19,7 @@ type Context struct {
 	clickStartRect image.Rectangle
 	hasTouch       bool
 	prevTouches    map[ebiten.TouchID]struct{}
+	dstBounds      image.Rectangle
 
 	// PointerMapper receives a coordinate pair consistent with
 	// Game.Layout and returns the corresponding offscreen position.
@@ -278,7 +279,10 @@ func (c *Context) topmostAt(pos image.Point) Widget {
 func (c *Context) Update() {
 	c.readPointerSnapshot()
 	c.root.Update(c)
+
 	c.rebuildWidgets()
+	c.root.SetHeight(c.dstBounds.Dy())
+	c.root.SetFrame(c.dstBounds.Min.X, c.dstBounds.Min.Y, c.dstBounds.Dx())
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		if ebiten.IsKeyPressed(ebiten.KeyShift) {
@@ -340,9 +344,8 @@ func (c *Context) Draw(dst *ebiten.Image) {
 		return
 	}
 
-	bounds := dst.Bounds()
-	c.root.SetHeight(bounds.Dy())
-	c.root.SetFrame(bounds.Min.X, bounds.Min.Y, bounds.Dx())
+	c.dstBounds = dst.Bounds()
+	c.root.SetHeight(c.dstBounds.Dy())
 	c.root.Draw(c, dst)
 	c.root.DrawOverlay(c, dst)
 }
