@@ -76,18 +76,20 @@ func (l *Stack) Update(ctx *uikit.Context) {
 	if l.height > 0 {
 		l.Scroller.Update(ctx, r, l.contentH)
 	}
-	l.doLayout(ctx)
 
 	for _, w := range l.children {
-		if !w.IsVisible() {
-			continue
+		if w.IsVisible() {
+			w.Update(ctx)
 		}
-
-		w.Update(ctx)
 	}
 }
 
-func (l *Stack) doLayout(ctx *uikit.Context) {
+func (l *Stack) SetFrame(x, y, width int) {
+	l.Base.SetFrame(x, y, width)
+	l.doLayout()
+}
+
+func (l *Stack) doLayout() {
 	vp := l.Measure(false)
 	x := vp.Min.X + l.padX
 	y := vp.Min.Y + l.padY - l.Scroller.ScrollY

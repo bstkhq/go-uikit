@@ -218,7 +218,6 @@ func (l *RowStack) Update(ctx *uikit.Context) {
 	if l.BeforeUpdate != nil {
 		l.BeforeUpdate(ctx, l)
 	}
-	l.doLayout(ctx)
 	if l.height > 0 {
 		l.Scroller.Update(ctx, l.Measure(false), l.contentH)
 	}
@@ -231,7 +230,12 @@ func (l *RowStack) Update(ctx *uikit.Context) {
 	}
 }
 
-func (l *RowStack) doLayout(ctx *uikit.Context) {
+func (l *RowStack) SetFrame(x, y, width int) {
+	l.Base.SetFrame(x, y, width)
+	l.doLayout()
+}
+
+func (l *RowStack) doLayout() {
 	area := l.Measure(false)
 
 	ox := area.Min.X + l.padX

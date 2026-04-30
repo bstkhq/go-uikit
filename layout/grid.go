@@ -84,7 +84,6 @@ func (l *Grid) Update(ctx *uikit.Context) {
 	if l.height > 0 {
 		l.Scroller.Update(ctx, l.Measure(false), l.contentH)
 	}
-	l.doLayout(ctx)
 
 	for _, ch := range l.children {
 		if !ch.IsVisible() {
@@ -94,7 +93,12 @@ func (l *Grid) Update(ctx *uikit.Context) {
 	}
 }
 
-func (l *Grid) doLayout(ctx *uikit.Context) {
+func (l *Grid) SetFrame(x, y, width int) {
+	l.Base.SetFrame(x, y, width)
+	l.doLayout()
+}
+
+func (l *Grid) doLayout() {
 	vp := l.Measure(false)
 	cols := l.columns
 	if cols <= 0 {
