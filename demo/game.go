@@ -129,9 +129,10 @@ func (g *Game) initOnce() {
 
 	g.sel = widget.NewSelect(g.theme, nil)
 	g.sel.SetOptions([]widget.SelectOption{
-		{0, "Select a value..."},
-		{1, "Option A"}, {2, "Option B"}, {3, "Option C"},
-		{4, "Option D"}, {5, "Option E"}, {6, "Option F"},
+		{Value: 0, Label: "Select a value..."},
+		{Value: 1, Label: "Option A"}, {Value: 2, Label: "Option B"},
+		{Value: 3, Label: "Option C"}, {Value: 4, Label: "Option D"},
+		{Value: 5, Label: "Option E"}, {Value: 6, Label: "Option F"},
 	})
 
 	g.sel.On(uikit.EventValueChange, func(e uikit.Event) bool {
