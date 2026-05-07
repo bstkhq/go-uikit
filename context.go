@@ -13,7 +13,8 @@ type Context struct {
 	theme   *Theme
 	ime     IMEBridge
 	widgets []Widget
-	focus   int // -1 means none
+	visible []bool // visible in hierarchy
+	focus   int    // -1 means none
 
 	ptr            *PointerStatus
 	clickStartRect image.Rectangle
@@ -36,7 +37,6 @@ func NewContext(theme *Theme, root Layout, ime IMEBridge) *Context {
 		focus:       -1,
 		prevTouches: map[ebiten.TouchID]struct{}{},
 		root:        root,
-		widgets:     []Widget{root},
 		ptr:         &PointerStatus{},
 	}
 }
@@ -74,23 +74,27 @@ func (c *Context) Focused() Widget {
 
 func (c *Context) rebuildWidgets() {
 	c.widgets = c.widgets[:0]
-	var walk func(w Widget)
-	walk = func(w Widget) {
+	c.visible = c.visible[:0]
+
+	var walk func(w Widget, hierarchyVisible bool)
+	walk = func(w Widget, hierarchyVisible bool) {
 		if w == nil {
 			return
 		}
 
+		hierarchyVisible = hierarchyVisible && w.IsVisible()
 		c.widgets = append(c.widgets, w)
+		c.visible = append(c.visible, hierarchyVisible)
 
 		if hw, ok := any(w).(interface{ Children() []Widget }); ok {
 			for _, ch := range hw.Children() {
-				walk(ch)
+				walk(ch, hierarchyVisible)
 			}
 		}
 	}
 
 	for _, w := range c.root.Children() {
-		walk(w)
+		walk(w, c.root.IsVisible())
 	}
 }
 
@@ -167,7 +171,7 @@ func (c *Context) focusNext() {
 	start := c.focus
 	for i := 0; i < len(c.widgets); i++ {
 		idx := (start + 1 + i) % len(c.widgets)
-		if c.widgets[idx].IsVisible() && c.widgets[idx].IsEnabled() && c.widgets[idx].Focusable() {
+		if c.visible[idx] && c.widgets[idx].IsVisible() && c.widgets[idx].IsEnabled() && c.widgets[idx].Focusable() {
 			c.SetFocus(c.widgets[idx])
 			return
 		}
@@ -185,7 +189,7 @@ func (c *Context) focusPrev() {
 		for idx < 0 {
 			idx += len(c.widgets)
 		}
-		if c.widgets[idx].IsVisible() && c.widgets[idx].IsEnabled() && c.widgets[idx].Focusable() {
+		if c.visible[idx] && c.widgets[idx].IsVisible() && c.widgets[idx].IsEnabled() && c.widgets[idx].Focusable() {
 			c.SetFocus(c.widgets[idx])
 			return
 		}
@@ -264,7 +268,7 @@ func (c *Context) widgetHit(w Widget, pos image.Point) bool {
 func (c *Context) topmostAt(pos image.Point) Widget {
 	for i := len(c.widgets) - 1; i >= 0; i-- {
 		w := c.widgets[i]
-		if !w.IsVisible() || !w.IsEnabled() {
+		if !w.IsVisible() || !w.IsEnabled() || !c.visible[i] {
 			continue
 		}
 
@@ -307,8 +311,8 @@ func (c *Context) Update() {
 		hoverTarget = c.topmostAt(c.ptr.Position)
 	}
 
-	for _, w := range c.widgets {
-		if !w.IsVisible() {
+	for i, w := range c.widgets {
+		if !w.IsVisible() || !c.visible[i] {
 			continue
 		}
 
