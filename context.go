@@ -13,8 +13,9 @@ type Context struct {
 	theme   *Theme
 	ime     IMEBridge
 	widgets []Widget
-	visible []bool // visible in hierarchy
-	focus   int    // -1 means none
+	visible []bool            // widget visible in hierarchy
+	clips   []image.Rectangle // widget rects clipped in hierarchy
+	focus   int               // -1 means none
 
 	ptr            *PointerStatus
 	clickStartRect image.Rectangle
@@ -75,26 +76,30 @@ func (c *Context) Focused() Widget {
 func (c *Context) rebuildWidgets() {
 	c.widgets = c.widgets[:0]
 	c.visible = c.visible[:0]
+	c.clips = c.clips[:0]
 
-	var walk func(w Widget, hierarchyVisible bool)
-	walk = func(w Widget, hierarchyVisible bool) {
+	var walk func(w Widget, clipRect image.Rectangle, hierarchyVisible bool)
+	walk = func(w Widget, clipRect image.Rectangle, hierarchyVisible bool) {
 		if w == nil {
 			return
 		}
 
+		clippedRect := w.Measure(false).Intersect(clipRect)
+
 		hierarchyVisible = hierarchyVisible && w.IsVisible()
 		c.widgets = append(c.widgets, w)
 		c.visible = append(c.visible, hierarchyVisible)
+		c.clips = append(c.clips, clippedRect)
 
 		if hw, ok := any(w).(interface{ Children() []Widget }); ok {
 			for _, ch := range hw.Children() {
-				walk(ch, hierarchyVisible)
+				walk(ch, clippedRect, hierarchyVisible)
 			}
 		}
 	}
 
 	for _, w := range c.root.Children() {
-		walk(w, c.root.IsVisible())
+		walk(w, w.Measure(false), c.root.IsVisible())
 	}
 }
 
@@ -269,7 +274,10 @@ func (c *Context) topmostAt(pos image.Point) Widget {
 	for i := len(c.widgets) - 1; i >= 0; i-- {
 		w := c.widgets[i]
 		if !w.IsVisible() || !w.IsEnabled() || !c.visible[i] {
-			continue
+			continue // ignore if widget not visible
+		}
+		if !pos.In(c.clips[i]) {
+			continue // ignore if pos outside clipped rect (e.g. due to scroll)
 		}
 
 		if c.widgetHit(w, pos) {
