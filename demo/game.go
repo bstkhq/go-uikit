@@ -2,6 +2,7 @@ package demo
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -128,9 +129,10 @@ func (g *Game) initOnce() {
 
 	g.sel = widget.NewSelect(g.theme, nil)
 	g.sel.SetOptions([]widget.SelectOption{
-		{0, "Select a value..."},
-		{1, "Option A"}, {2, "Option B"}, {3, "Option C"},
-		{4, "Option D"}, {5, "Option E"}, {6, "Option F"},
+		{Value: 0, Label: "Select a value..."},
+		{Value: 1, Label: "Option A"}, {Value: 2, Label: "Option B"},
+		{Value: 3, Label: "Option C"}, {Value: 4, Label: "Option D"},
+		{Value: 5, Label: "Option E"}, {Value: 6, Label: "Option F"},
 	})
 
 	g.sel.On(uikit.EventValueChange, func(e uikit.Event) bool {
@@ -230,24 +232,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.ctx.Draw(screen)
 }
 
-func (g *Game) Layout(outW, outH int) (int, int) {
+func (g *Game) Layout(w, h int) (int, int) {
 	g.initOnce()
 
+	var scale float64 = 1.0
 	m := ebiten.Monitor()
-	if m == nil {
-		return 0, 0
+	if m != nil {
+		scale = m.DeviceScaleFactor()
+		if scale <= 0.0 {
+			scale = 1.0
+		}
 	}
 
-	dev := m.DeviceScaleFactor()
-	if dev <= 0 {
-		dev = 1
-	}
-
-	// Optional: make UI a bit larger on small screens.
-	minSide := float64(outW)
-	if float64(outH) < minSide {
-		minSide = float64(outH)
-	}
-
-	return outW, outH
+	return int(math.Ceil(float64(w) * scale)), int(math.Ceil(float64(h) * scale))
 }
