@@ -13,7 +13,9 @@ type Context struct {
 	theme   *Theme
 	ime     IMEBridge
 	widgets []Widget
-	focus   int // -1 means none
+	visible []bool            // widget visible in hierarchy
+	clips   []image.Rectangle // widget rects clipped in hierarchy
+	focus   int               // -1 means none
 
 	ptr            *PointerStatus
 	clickStartRect image.Rectangle
@@ -36,7 +38,6 @@ func NewContext(theme *Theme, root Layout, ime IMEBridge) *Context {
 		focus:       -1,
 		prevTouches: map[ebiten.TouchID]struct{}{},
 		root:        root,
-		widgets:     []Widget{root},
 		ptr:         &PointerStatus{},
 	}
 }
@@ -74,23 +75,31 @@ func (c *Context) Focused() Widget {
 
 func (c *Context) rebuildWidgets() {
 	c.widgets = c.widgets[:0]
-	var walk func(w Widget)
-	walk = func(w Widget) {
+	c.visible = c.visible[:0]
+	c.clips = c.clips[:0]
+
+	var walk func(w Widget, clipRect image.Rectangle, hierarchyVisible bool)
+	walk = func(w Widget, clipRect image.Rectangle, hierarchyVisible bool) {
 		if w == nil {
 			return
 		}
 
+		clippedRect := w.Measure(false).Intersect(clipRect)
+
+		hierarchyVisible = hierarchyVisible && w.IsVisible()
 		c.widgets = append(c.widgets, w)
+		c.visible = append(c.visible, hierarchyVisible)
+		c.clips = append(c.clips, clippedRect)
 
 		if hw, ok := any(w).(interface{ Children() []Widget }); ok {
 			for _, ch := range hw.Children() {
-				walk(ch)
+				walk(ch, clippedRect, hierarchyVisible)
 			}
 		}
 	}
 
 	for _, w := range c.root.Children() {
-		walk(w)
+		walk(w, w.Measure(false), c.root.IsVisible())
 	}
 }
 
@@ -167,7 +176,7 @@ func (c *Context) focusNext() {
 	start := c.focus
 	for i := 0; i < len(c.widgets); i++ {
 		idx := (start + 1 + i) % len(c.widgets)
-		if c.widgets[idx].IsVisible() && c.widgets[idx].IsEnabled() && c.widgets[idx].Focusable() {
+		if c.visible[idx] && c.widgets[idx].IsVisible() && c.widgets[idx].IsEnabled() && c.widgets[idx].Focusable() {
 			c.SetFocus(c.widgets[idx])
 			return
 		}
@@ -185,7 +194,7 @@ func (c *Context) focusPrev() {
 		for idx < 0 {
 			idx += len(c.widgets)
 		}
-		if c.widgets[idx].IsVisible() && c.widgets[idx].IsEnabled() && c.widgets[idx].Focusable() {
+		if c.visible[idx] && c.widgets[idx].IsVisible() && c.widgets[idx].IsEnabled() && c.widgets[idx].Focusable() {
 			c.SetFocus(c.widgets[idx])
 			return
 		}
@@ -264,8 +273,11 @@ func (c *Context) widgetHit(w Widget, pos image.Point) bool {
 func (c *Context) topmostAt(pos image.Point) Widget {
 	for i := len(c.widgets) - 1; i >= 0; i-- {
 		w := c.widgets[i]
-		if !w.IsVisible() || !w.IsEnabled() {
-			continue
+		if !w.IsVisible() || !w.IsEnabled() || !c.visible[i] {
+			continue // ignore if widget not visible
+		}
+		if !pos.In(c.clips[i]) {
+			continue // ignore if pos outside clipped rect (e.g. due to scroll)
 		}
 
 		if c.widgetHit(w, pos) {
@@ -307,8 +319,8 @@ func (c *Context) Update() {
 		hoverTarget = c.topmostAt(c.ptr.Position)
 	}
 
-	for _, w := range c.widgets {
-		if !w.IsVisible() {
+	for i, w := range c.widgets {
+		if !w.IsVisible() || !c.visible[i] {
 			continue
 		}
 
