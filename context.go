@@ -278,11 +278,11 @@ func (c *Context) topmostAt(pos image.Point) Widget {
 
 func (c *Context) Update() {
 	c.readPointerSnapshot()
-	c.root.SetHeight(c.dstBounds.Dy())
-	c.root.SetFrame(c.dstBounds.Min.X, c.dstBounds.Min.Y, c.dstBounds.Dx())
 	c.root.Update(c)
 
 	c.rebuildWidgets()
+	c.root.SetHeight(c.dstBounds.Dy())
+	c.root.SetFrame(c.dstBounds.Min.X, c.dstBounds.Min.Y, c.dstBounds.Dx())
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		if ebiten.IsKeyPressed(ebiten.KeyShift) {
@@ -345,6 +345,7 @@ func (c *Context) Draw(dst *ebiten.Image) {
 	}
 
 	c.dstBounds = dst.Bounds()
+	c.root.SetHeight(c.dstBounds.Dy())
 	c.root.Draw(c, dst)
 	c.root.DrawOverlay(c, dst)
 }
