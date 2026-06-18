@@ -22,6 +22,7 @@ type Context struct {
 	hasTouch       bool
 	prevTouches    map[ebiten.TouchID]struct{}
 	dstBounds      image.Rectangle
+	imeSyncID      uint64
 
 	// PointerMapper receives a coordinate pair consistent with
 	// Game.Layout and returns the corresponding offscreen position.
@@ -55,7 +56,11 @@ func (c *Context) Root() Layout {
 // It also synchronizes the IME visibility with the currently focused widget.
 func (c *Context) SetIMEBridge(b IMEBridge) {
 	c.ime = b
-	c.updateIME(nil, c.Focused())
+	c.refreshIME(nil, c.Focused())
+}
+
+func (c *Context) IMEBridge() IMEBridge {
+	return c.ime
 }
 
 func (c *Context) Add(w Widget) {
@@ -133,37 +138,58 @@ func (c *Context) SetFocus(w Widget) {
 	}
 
 	// IME show/hide based on focused widget.
-	c.updateIME(old, newW)
+	c.refreshIME(old, newW)
 }
 
-func (c *Context) updateIME(oldW, newW Widget) {
+func (c *Context) refreshIME(oldW, newW Widget) {
 	if c.ime == nil {
 		return
 	}
 
 	// note: IME shown status can't be reliable monitored. Users can call
 	// Show()/Hide() on their own, and Android also doesn't expose this
-	var opts IMEOptions
-	var hadIME, hasIME bool
+	var prevIME, newIME IME
 	if oldW != nil && oldW.IsEnabled() {
-		if _, ok := oldW.(IME); ok {
-			hadIME = true
-		}
+		prevIME, _ = oldW.(IME)
 	}
 
 	if newW != nil && newW.IsEnabled() {
-		if w, ok := newW.(IME); ok {
-			hasIME = true
-			opts = w.IME()
+		newIME, _ = newW.(IME)
+	}
+
+	if prevIME != nil {
+		prevIME.IMEFlush(c.ime.Composing())
+		c.imeSyncID = 0
+		if newIME == nil {
+			c.ime.Hide()
 		}
 	}
 
-	if hadIME && !hasIME {
-		c.ime.Hide()
+	if newIME != nil {
+		inType, imeOpts := newIME.IME().AndroidParameters()
+		c.imeSyncID = newIME.IMESyncID()
+		c.ime.Show(inType, imeOpts)
 	}
+}
 
-	if hasIME {
-		inType, imeOpts := opts.AndroidParameters()
+func (c *Context) updateIME() {
+	if c.ime == nil {
+		return
+	}
+	widget := c.Focused()
+	if widget == nil {
+		return
+	}
+	imeWidget, ok := widget.(IME)
+	if !ok {
+		return
+	}
+	syncID := imeWidget.IMESyncID()
+	if syncID != c.imeSyncID {
+		// reset input
+		imeWidget.IMEFlush(c.ime.Composing())
+		inType, imeOpts := imeWidget.IME().AndroidParameters()
+		c.imeSyncID = syncID
 		c.ime.Show(inType, imeOpts)
 	}
 }
@@ -349,6 +375,7 @@ func (c *Context) Update() {
 
 		w.SetFocused((c.Focused() == w) && w.IsEnabled() && w.Focusable())
 	}
+	c.updateIME()
 }
 
 func (c *Context) Draw(dst *ebiten.Image) {

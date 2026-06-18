@@ -13,6 +13,7 @@ import (
 )
 
 var _ uikit.Widget = (*TextArea)(nil)
+var _ uikit.IME = (*TextArea)(nil)
 
 // TextArea is a multi-line text editor with internal vertical scrolling.
 type TextArea struct {
@@ -72,8 +73,15 @@ func (w *TextArea) calculateHeight() int {
 }
 
 func (w *TextArea) Focusable() bool       { return true }
-func (w *TextArea) IME() uikit.IMEOptions { return w.IMEOptions }
 func (w *TextArea) Text() string          { return w.text }
+func (w *TextArea) IME() uikit.IMEOptions { return w.IMEOptions }
+func (w *TextArea) IMESyncID() uint64     { return 0 }
+
+func (w *TextArea) IMEFlush(composing string) {
+	if composing != "" {
+		w.SetText(w.text + composing)
+	}
+}
 
 func (w *TextArea) SetText(s string) {
 	if w.text == s {

@@ -32,6 +32,7 @@ func run() {
 type IMEBridge interface {
 	Show(int32, int32)
 	Hide()
+	Composing() string
 }
 
 // RegisterIMEBridge is exposed to Java as Mobile.registerIMEBridge(...)

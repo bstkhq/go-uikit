@@ -14,6 +14,7 @@ import (
 )
 
 var _ uikit.Widget = (*TextInput)(nil)
+var _ uikit.IME = (*TextInput)(nil)
 
 // TextInput is a single-line input box (no label).
 // Height and proportions come from Theme; external layout controls only width.
@@ -24,9 +25,11 @@ type TextInput struct {
 	placeholder string
 	caretTick   int
 	caretPos    int
+	flushCaret  int  // position to insert next IMEFlush
 	scrollPos   int  // in runes
 	anchorRight bool // for scrollPos
 	wasFocused  bool
+	syncID      uint64 // increase on external state change (IMESyncID)
 
 	IMEOptions uikit.IMEOptions
 	OnCommit   func(*uikit.Context)
@@ -51,8 +54,19 @@ func NewTextInput(theme *uikit.Theme, placeholder string) *TextInput {
 }
 
 func (w *TextInput) Focusable() bool       { return true }
-func (w *TextInput) IME() uikit.IMEOptions { return w.IMEOptions }
 func (w *TextInput) Text() string          { return w.text }
+func (w *TextInput) IME() uikit.IMEOptions { return w.IMEOptions }
+func (w *TextInput) IMESyncID() uint64 {
+	return w.syncID
+}
+
+func (w *TextInput) IMEFlush(composing string) {
+	if composing != "" {
+		pos := min(w.flushCaret, len(w.textRunes))
+		w.SetText(string(w.textRunes[:pos]) + composing + string(w.textRunes[pos:]))
+	}
+	w.flushCaret = w.caretPos
+}
 
 // SetText sets the current text value and dispatches a value-change event.
 func (w *TextInput) SetText(s string) {
@@ -76,7 +90,9 @@ func (w *TextInput) SetTextSilently(s string) {
 	for _, r := range s {
 		w.textRunes = append(w.textRunes, r)
 	}
+	w.syncID += 1
 	w.caretPos = min(w.caretPos, len(w.textRunes))
+	w.flushCaret = w.caretPos
 	w.scrollPos = max(0, w.scrollPos)
 }
 
@@ -99,7 +115,11 @@ func (w *TextInput) Caret() int {
 // SetCaret manually changes the caret position, in runes.
 // Values out of range will be clamped.
 func (w *TextInput) SetCaret(index int) {
-	w.caretPos = min(max(index, 0), len(w.textRunes))
+	newCaret := min(max(index, 0), len(w.textRunes))
+	if w.caretPos != newCaret {
+		w.caretPos = newCaret
+		w.syncID += 1
+	}
 }
 
 // ClosestCaretIndex performs hit testing to find the caret index
@@ -175,8 +195,11 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 	ptr := ctx.Pointer()
 	if ptr.IsDown && ptr.Position.In(w.Measure(false)) {
 		w.caretTick = 0
-		index := w.ClosestCaretIndex(ptr.Position.X)
-		w.SetCaret(index)
+		w.flushCaret = w.caretPos
+		w.SetCaret(w.ClosestCaretIndex(ptr.Position.X))
+		if w.flushCaret != w.caretPos {
+			return
+		}
 	}
 
 	if !w.IsFocused() {
@@ -195,6 +218,7 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 			if w.inputRuneLimit == 0 || len(w.textRunes) < w.inputRuneLimit {
 				w.textRunes = slices.Insert(w.textRunes, w.caretPos, r) // could be optimized
 				w.caretPos += 1
+				w.flushCaret = w.caretPos
 				changed = true
 			} else {
 				w.caretTick = 0
@@ -230,6 +254,7 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 }
 
 func (w *TextInput) updateNav() {
+	prevCaret := w.caretPos
 	if inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
 		w.caretTick = 0
 		if w.caretPos > 0 {
@@ -256,6 +281,10 @@ func (w *TextInput) updateNav() {
 		w.caretPos = len(w.textRunes)
 		w.caretTick = 0
 	}
+	if prevCaret != w.caretPos {
+		w.flushCaret = prevCaret
+		w.syncID += 1
+	}
 }
 
 func (w *TextInput) deleteRuneBS() bool {
@@ -268,6 +297,7 @@ func (w *TextInput) deleteRuneBS() bool {
 	}
 	w.textRunes = slices.Delete(w.textRunes, start, w.caretPos)
 	w.caretPos -= (w.caretPos - start)
+	w.flushCaret = w.caretPos
 	return true
 }
 
@@ -305,8 +335,11 @@ func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	}
 
 	// find caret and scroll anchor positions
+	composing := ctx.IMEBridge().Composing()
+	compWidth := renderer.Measure(composing).IntWidth()
 	feed := etxt.NewFeed(renderer)
 	caretShift, scrollShift := -1, -1
+
 	for i, r := range w.textRunes {
 		if i == w.caretPos {
 			caretShift = feed.Position.X.ToIntFloor()
@@ -367,12 +400,26 @@ func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	if w.anchorRight {
 		shift += width
 	}
-	renderer.Draw(dst, w.text, r.Min.X+shift, cy+yShake)
+
+	renderer.SetAlign(etxt.VertCenter | etxt.Left)
+	if composing == "" {
+		renderer.Draw(dst, w.text, r.Min.X+shift, cy+yShake)
+	} else {
+		pre := string(w.textRunes[:w.caretPos])
+		preWidth := renderer.Measure(pre).IntWidth()
+		renderer.Draw(dst, pre, r.Min.X+shift, cy+yShake)
+		renderer.SetColor(theme.MutedTextColor)
+		renderer.Draw(dst, composing, r.Min.X+shift+preWidth, cy+yShake)
+		renderer.SetColor(theme.TextColor)
+		if w.caretPos < len(w.textRunes) {
+			renderer.Draw(dst, string(w.textRunes[w.caretPos:]), r.Min.X+shift+preWidth+compWidth, cy+yShake)
+		}
+	}
 
 	// draw caret
 	if w.IsFocused() && w.IsEnabled() && theme.CaretWidthPx > 0 && w.blink(theme) {
 		lineHeight := int(math.Round(renderer.Utils().GetLineHeight()))
-		x := r.Min.X + caretShift + shift + theme.CaretMarginPx
+		x := r.Min.X + caretShift + shift + theme.CaretMarginPx + compWidth
 		cy -= (lineHeight / 2)
 		b := dst.Bounds()
 		cy -= b.Min.Y
