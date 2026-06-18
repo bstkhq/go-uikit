@@ -335,7 +335,10 @@ func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	}
 
 	// find caret and scroll anchor positions
-	composing := ctx.IMEBridge().Composing()
+	var composing string
+	if w.IsFocused() {
+		composing = ctx.IMEBridge().Composing()
+	}
 	compWidth := renderer.Measure(composing).IntWidth()
 	feed := etxt.NewFeed(renderer)
 	caretShift, scrollShift := -1, -1
