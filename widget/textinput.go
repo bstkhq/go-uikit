@@ -206,7 +206,16 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 		return
 	}
 
+	// handle delete keys first
 	var changed bool
+	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+		changed = w.deleteRuneBS() || changed
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) {
+		changed = w.deleteRuneDEL() || changed
+	}
+
+	// process input
 	w.appendBuf = ebiten.AppendInputChars(w.appendBuf[:0])
 	for _, r := range w.appendBuf {
 		switch {
@@ -225,14 +234,6 @@ func (w *TextInput) Update(ctx *uikit.Context) {
 				w.inputLimitTick = 1
 			}
 		}
-	}
-
-	// handle other special keys
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		changed = w.deleteRuneBS() || changed
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) {
-		changed = w.deleteRuneDEL() || changed
 	}
 	w.updateNav()
 
@@ -336,8 +337,9 @@ func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 
 	// find caret and scroll anchor positions
 	var composing string
-	if w.IsFocused() {
-		composing = ctx.IMEBridge().Composing()
+	ime := ctx.IMEBridge()
+	if w.IsFocused() && ime != nil {
+		composing = ime.Composing()
 	}
 	compWidth := renderer.Measure(composing).IntWidth()
 	feed := etxt.NewFeed(renderer)
