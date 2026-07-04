@@ -22,6 +22,7 @@ all sharing one rule — **every proportion is derived from the font**, so nothi
 - [Text input & IME (soft keyboards)](#text-input--ime-soft-keyboards)
 - [Building for other platforms](#building-for-other-platforms)
 - [Examples in this repo](#examples-in-this-repo)
+- [License](#license)
 
 ## Design philosophy
 
@@ -210,3 +211,7 @@ own `<canvas>` — no other markup is required. To publish: push `docs/` to `mas
 | [`cmd/demo`](cmd/demo) (source in [`demo/game.go`](demo/game.go)) | Every widget and both `Stack`/`Grid` layouts together, with live focus/TPS/FPS labels, validation, and a custom `Container`. This is the binary behind the live WASM demo. |
 | [`cmd/rowstack`](cmd/rowstack) | `RowStack` layout patterns — mixed column weights per row. |
 | [`cmd/android`](cmd/android) / [`example/android`](example/android) | Packaging the demo as an Android APK via Ebiten Mobile, with the IME bridge connected to the system keyboard. |
+
+## License
+
+MIT — see [LICENSE](LICENSE).
