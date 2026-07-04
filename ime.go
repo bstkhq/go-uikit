@@ -1,16 +1,34 @@
 package uikit
 
 // IMEBridge is implemented on the Java side and registered from your mobile package.
-// In this minimal integration, it only opens/closes the keyboard.
 type IMEBridge interface {
+	// Show restarts the IME input and makes it show up if not already visible.
+	//
 	// Android values can be derived with [IMEOptions.AndroidParameters]().
 	Show(inputType, imeOptions int32)
+
+	// Hide hides the IME if currently visible.
 	Hide()
+
+	// Composing returns the text in composition. This text is not yet
+	// committed, so it might suddenly be dropped, completed or converted
+	// (e.g. kana to kanji). Text should ideally be displayed underlined.
+	Composing() string
 }
 
 // IME marks widgets that should trigger IME when focused.
 type IME interface {
+	// IME returns the IME's input type and options. Changes to this value
+	// only take effect when restarting the IME.
 	IME() IMEOptions
+
+	// IMESyncID must change when externally modifying text or cursor
+	// position. This will restart the IME and flush composition.
+	IMESyncID() uint64
+
+	// IMEFlush is invoked before hiding or restarting the IME, and receives
+	// any remaining composing text.
+	IMEFlush(string)
 }
 
 // IMEOptions control the IME input type and options. There are three
@@ -21,9 +39,6 @@ type IME interface {
 //	opts := KeyboardURI | ActionSearch // combine two options
 //	opts := KeyboardText | CapSentences // add capitalization
 //	opts := KeyboardText | ActionSend | CapsSentences // all options
-//
-// Notice that some keyboards can't support some flags and might be downgraded
-// at runtime. For example, samsung IME won't support KeyboardRaw.
 type IMEOptions int32
 
 // IMEOptions constants.
