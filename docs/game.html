@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>go-uikit — live demo</title>
+<style>
+  :root{
+    --bg:#14161a;
+    --border:#3a414d;
+    --text:#ebeef2;
+    --muted:#8b93a1;
+    --accent:#78aaff;
+    --error:#eb6e6e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+  }
+  .mono {
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  #loading {
+    position: fixed; inset: 0; z-index: 30;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.9rem;
+    background: var(--bg);
+    transition: opacity 0.35s ease;
+  }
+  #loading.hidden { opacity: 0; pointer-events: none; }
+  .spinner {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    animation: spin 0.85s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.6s; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading .status { font-size: 0.78rem; color: var(--muted); }
+  #loading .status.error { color: var(--error); max-width: 26rem; text-align: center; line-height: 1.5; padding: 0 1rem; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner" aria-hidden="true"></div>
+  <div class="status mono" id="loading-status">fetching binary…</div>
+</div>
+
+<script src="wasm_exec.js"></script>
+<script>
+(async () => {
+  const statusEl = document.getElementById('loading-status');
+  const loadingEl = document.getElementById('loading');
+
+  function fail(err) {
+    loadingEl.querySelector('.spinner').style.display = 'none';
+    statusEl.classList.add('error');
+    statusEl.textContent = 'Failed to start the demo: ' + (err && err.message ? err.message : err);
+    console.error(err);
+  }
+
+  try {
+    const go = new Go();
+    let result;
+    try {
+      // Preferred: streaming compile, requires the server to send the
+      // correct application/wasm content type.
+      result = await WebAssembly.instantiateStreaming(fetch('demo.wasm'), go.importObject);
+    } catch (streamErr) {
+      // Fallback for servers/browsers that don't support streaming
+      // compilation or send the wrong MIME type.
+      statusEl.textContent = 'compiling…';
+      const resp = await fetch('demo.wasm');
+      const bytes = await resp.arrayBuffer();
+      result = await WebAssembly.instantiate(bytes, go.importObject);
+    }
+
+    loadingEl.classList.add('hidden');
+    go.run(result.instance);
+  } catch (err) {
+    fail(err);
+  }
+})();
+</script>
+</body>
+</html>

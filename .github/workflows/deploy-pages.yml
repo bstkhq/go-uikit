@@ -1,0 +1,59 @@
+name: Deploy live demo to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "docs/index.html"
+      - "docs/game.html"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build cmd/demo for WebAssembly
+        env:
+          GOOS: js
+          GOARCH: wasm
+        run: go build -ldflags="-s -w" -trimpath -o docs/demo.wasm ./cmd/demo
+
+      - name: Copy the matching wasm_exec.js glue
+        run: |
+          src="$(go env GOROOT)/lib/wasm/wasm_exec.js"
+          [ -f "$src" ] || src="$(go env GOROOT)/misc/wasm/wasm_exec.js"
+          cp "$src" docs/wasm_exec.js
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
