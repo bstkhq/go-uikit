@@ -7,6 +7,7 @@ import (
 
 	"github.com/tinne26/etxt"
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/gobold"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
@@ -16,6 +17,7 @@ import (
 // Only the font and font size are inputs; everything else derives from them.
 type Theme struct {
 	Font     *sfnt.Font
+	BoldFont *sfnt.Font
 	FontPx   int
 	ControlH int
 
@@ -98,11 +100,16 @@ func fontHeight(f *sfnt.Font, sizePx int) (int, error) {
 }
 
 func DefaultTheme() *Theme {
-	f, _ := sfnt.Parse(goregular.TTF)
-	return NewTheme(f, 20)
+	regular, _ := sfnt.Parse(goregular.TTF)
+	bold, _ := sfnt.Parse(gobold.TTF)
+	return NewThemeWithFonts(regular, bold, 20)
 }
 
 func NewTheme(font *sfnt.Font, fontPx int) *Theme {
+	return NewThemeWithFonts(font, font, fontPx)
+}
+
+func NewThemeWithFonts(font, boldFont *sfnt.Font, fontPx int) *Theme {
 	if fontPx < 10 {
 		fontPx = 10
 	}
@@ -178,6 +185,7 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 
 	return &Theme{
 		Font:     font,
+		BoldFont: boldFont,
 		FontPx:   fontPx,
 		ControlH: controlH,
 		PadX:     padX,
@@ -213,5 +221,16 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 		CaretWidthPx:  2,
 		CaretBlink:    600 * time.Millisecond,
 		CaretMarginPx: 0,
+	}
+}
+
+// SetFonts changes the regular and bold fonts without altering the theme's
+// palette or layout metrics. Nil values leave the corresponding font unchanged.
+func (t *Theme) SetFonts(font, boldFont *sfnt.Font) {
+	if font != nil {
+		t.Font = font
+	}
+	if boldFont != nil {
+		t.BoldFont = boldFont
 	}
 }
