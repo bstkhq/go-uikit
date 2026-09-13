@@ -240,7 +240,6 @@ func (w *TextArea) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	ox, oy := content.Bounds().Min.X, content.Bounds().Min.Y
 
 	t := theme.Text()
-	t.SetFont(theme.Font)
 	t.SetSize(float64(theme.FontPx))
 	t.SetAlign(etxt.Left | etxt.Top)
 

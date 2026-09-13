@@ -97,12 +97,22 @@ func main() {
 
 | Type | Role |
 |---|---|
-| `uikit.Theme` | The single source of truth for proportions and colors. Built from a font + pixel size via `uikit.NewTheme(font, fontPx)`, or `uikit.DefaultTheme()` for a ready-made dark theme (Go's built-in `goregular` at 20px). All fields are exported, so you can mutate the returned `*Theme` to restyle colors without touching layout math. |
+| `uikit.Theme` | The single source of truth for proportions and colors. Built from a default font + pixel size via `uikit.NewTheme(font, fontPx)`, or `uikit.DefaultTheme()` for a ready-made dark theme (Go Regular/Go Bold at 20px). Additional font variants live in the exported `TextStyles` map. All fields are exported, so you can restyle the returned `*Theme` without touching layout math. |
 | `uikit.Context` | Owns the widget tree, routes pointer/keyboard input, tracks focus, and drives per-frame `Update`/`Draw`. One per `ebiten.Game`. Created with `uikit.NewContext(theme, root, ime)`. |
 | `uikit.Widget` | The interface every control implements: frame placement, hover/press/focus/enabled/visible state, `Measure`, `Update`, `Draw`, and event registration. |
 | `uikit.Layout` | A `Widget` that owns children (`Add`, `SetChildren`, `Clear`) and can draw overlays above them (used by `Select`'s dropdown). Stack, RowStack and Grid all implement it — and since a `Layout` is itself a `Widget`, layouts nest freely. |
 | `uikit.Base` | Embedded by every widget/layout. Supplies the shared hover/press/focus/enabled/invalid bookkeeping, the standard surface/border/focus-ring/error drawing, and height computation from the theme. |
 | `uikit.EventDispatcher` | Embedded via `Base`. Backs `On`/`Dispatch` for every widget. |
+
+`theme.Text()` returns the default text renderer. Use `theme.Renderer(uikit.TextBold)` for a
+registered variant. Applications can add variants without changing `Theme`:
+
+```go
+theme.TextStyles[uikit.TextStyle("italic")] = italicFont
+```
+
+All variants share `theme.FontPx`; components that need another size can adjust the renderer or use
+`widget.Size`.
 
 ## Widgets
 

@@ -16,10 +16,9 @@ import (
 // Theme is the single source of truth for widget proportions.
 // Only the font and font size are inputs; everything else derives from them.
 type Theme struct {
-	Font     *sfnt.Font
-	BoldFont *sfnt.Font
-	FontPx   int
-	ControlH int
+	TextStyles TextStyles
+	FontPx     int
+	ControlH   int
 
 	PadX int
 	PadY int
@@ -67,7 +66,22 @@ type Theme struct {
 	renderer *etxt.Renderer
 }
 
-func (t *Theme) Text() *etxt.Renderer {
+// TextStyle identifies a font variant within a theme. Applications may define
+// additional variants, such as "italic" or "narrow".
+type TextStyle string
+
+const (
+	TextDefault TextStyle = "default"
+	TextBold    TextStyle = "bold"
+)
+
+// TextStyles maps font variants to their faces. Font size is shared by all
+// variants through [Theme.FontPx].
+type TextStyles map[TextStyle]*sfnt.Font
+
+// Renderer returns the shared text renderer configured for style. Missing or
+// nil variants fall back to TextDefault.
+func (t *Theme) Renderer(style TextStyle) *etxt.Renderer {
 	if t.renderer == nil {
 		r := etxt.NewRenderer()
 		r.Utils().SetCache8MiB()
@@ -75,11 +89,20 @@ func (t *Theme) Text() *etxt.Renderer {
 		t.renderer = r
 	}
 
-	t.renderer.SetFont(t.Font)
+	font := t.TextStyles[style]
+	if font == nil {
+		font = t.TextStyles[TextDefault]
+	}
+	t.renderer.SetFont(font)
 	t.renderer.SetSize(float64(t.FontPx))
 	t.renderer.SetColor(t.TextColor)
 	t.renderer.SetAlign(etxt.Left | etxt.VertCenter)
 	return t.renderer
+}
+
+// Text returns the shared renderer configured with the default text style.
+func (t *Theme) Text() *etxt.Renderer {
+	return t.Renderer(TextDefault)
 }
 
 func (t *Theme) ErrorText() *etxt.Renderer {
@@ -102,14 +125,12 @@ func fontHeight(f *sfnt.Font, sizePx int) (int, error) {
 func DefaultTheme() *Theme {
 	regular, _ := sfnt.Parse(goregular.TTF)
 	bold, _ := sfnt.Parse(gobold.TTF)
-	return NewThemeWithFonts(regular, bold, 20)
+	theme := NewTheme(regular, 20)
+	theme.TextStyles[TextBold] = bold
+	return theme
 }
 
 func NewTheme(font *sfnt.Font, fontPx int) *Theme {
-	return NewThemeWithFonts(font, font, fontPx)
-}
-
-func NewThemeWithFonts(font, boldFont *sfnt.Font, fontPx int) *Theme {
 	if fontPx < 10 {
 		fontPx = 10
 	}
@@ -184,12 +205,11 @@ func NewThemeWithFonts(font, boldFont *sfnt.Font, fontPx int) *Theme {
 	}
 
 	return &Theme{
-		Font:     font,
-		BoldFont: boldFont,
-		FontPx:   fontPx,
-		ControlH: controlH,
-		PadX:     padX,
-		PadY:     padY,
+		TextStyles: TextStyles{TextDefault: font},
+		FontPx:     fontPx,
+		ControlH:   controlH,
+		PadX:       padX,
+		PadY:       padY,
 
 		Radius:       radius,
 		BorderW:      borderW,
@@ -221,16 +241,5 @@ func NewThemeWithFonts(font, boldFont *sfnt.Font, fontPx int) *Theme {
 		CaretWidthPx:  2,
 		CaretBlink:    600 * time.Millisecond,
 		CaretMarginPx: 0,
-	}
-}
-
-// SetFonts changes the regular and bold fonts without altering the theme's
-// palette or layout metrics. Nil values leave the corresponding font unchanged.
-func (t *Theme) SetFonts(font, boldFont *sfnt.Font) {
-	if font != nil {
-		t.Font = font
-	}
-	if boldFont != nil {
-		t.BoldFont = boldFont
 	}
 }
