@@ -68,6 +68,22 @@ func TestRendererUsesRequestedStyleAndDefaults(t *testing.T) {
 	}
 }
 
+func TestFontResolvesStylesWithoutMutatingRenderer(t *testing.T) {
+	theme := DefaultTheme()
+	renderer := theme.Renderer(TextDefault)
+	defaultFont := renderer.GetFont()
+
+	if theme.Font(TextBold) != theme.TextStyles[TextBold] {
+		t.Fatal("Font did not resolve the requested style")
+	}
+	if renderer.GetFont() != defaultFont {
+		t.Fatal("Font must not mutate the shared renderer")
+	}
+	if theme.Font(TextStyle("missing")) != defaultFont {
+		t.Fatal("Font must fall back to TextDefault")
+	}
+}
+
 func TestTextUsesDefaultStyle(t *testing.T) {
 	theme := DefaultTheme()
 	if theme.Text().GetFont() != theme.TextStyles[TextDefault] {
