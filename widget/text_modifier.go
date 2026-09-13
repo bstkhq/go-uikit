@@ -16,6 +16,14 @@ func Font(f *sfnt.Font) TextModifier {
 	}
 }
 
+// TextStyle selects a font variant from the theme. Missing variants use the
+// theme's default font.
+func TextStyle(style uikit.TextStyle) TextModifier {
+	return func(theme *uikit.Theme, renderer *etxt.Renderer) {
+		renderer.SetFont(theme.Font(style))
+	}
+}
+
 func Color(c color.Color) TextModifier {
 	return func(theme *uikit.Theme, renderer *etxt.Renderer) {
 		renderer.SetColor(c)

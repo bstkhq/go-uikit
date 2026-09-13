@@ -79,6 +79,16 @@ const (
 // variants through [Theme.FontPx].
 type TextStyles map[TextStyle]*sfnt.Font
 
+// Font returns the font registered for style. Missing or nil variants fall
+// back to TextDefault.
+func (t *Theme) Font(style TextStyle) *sfnt.Font {
+	font := t.TextStyles[style]
+	if font == nil {
+		font = t.TextStyles[TextDefault]
+	}
+	return font
+}
+
 // Renderer returns the shared text renderer configured for style. Missing or
 // nil variants fall back to TextDefault.
 func (t *Theme) Renderer(style TextStyle) *etxt.Renderer {
@@ -89,11 +99,7 @@ func (t *Theme) Renderer(style TextStyle) *etxt.Renderer {
 		t.renderer = r
 	}
 
-	font := t.TextStyles[style]
-	if font == nil {
-		font = t.TextStyles[TextDefault]
-	}
-	t.renderer.SetFont(font)
+	t.renderer.SetFont(t.Font(style))
 	t.renderer.SetSize(float64(t.FontPx))
 	t.renderer.SetColor(t.TextColor)
 	t.renderer.SetAlign(etxt.Left | etxt.VertCenter)
