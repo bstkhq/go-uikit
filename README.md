@@ -112,7 +112,8 @@ theme.TextStyles[uikit.TextStyle("italic")] = italicFont
 ```
 
 All variants share `theme.FontPx`; components that need another size can adjust the renderer or use
-`widget.Size`.
+`widget.Size`. Use `widget.TextStyle(uikit.TextBold)` when a widget should resolve a variant from its
+theme, and reserve `widget.Font(font)` for an explicit font outside the theme.
 
 ## Widgets
 
